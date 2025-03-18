@@ -1,0 +1,34 @@
+# Ignore semua isi dalam TB_Chest_Radiography_Database kecuali README.md.txt
+dataset/TB_Chest_Radiography_Database/*
+!dataset/TB_Chest_Radiography_Database/README.md.txt
+
+# Ignore file kredensial Kaggle
+kaggle.json
+
+# Ignore file environment dan dependencies
+venv/
+.env
+
+# Ignore cache dan file sementara
+__pycache__/
+*.pyc
+*.pyo
+
+# Ignore log dan hasil build
+*.log
+*.out
+*.h5
+*.pth
+*.ckpt
+
+# Ignore Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Ignore frontend dependencies (jika pakai React/Vue)
+node_modules/
+dist/
+
+# Ignore IDE dan editor settings
+.vscode/
+.idea/
+*.swp
