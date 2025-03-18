@@ -18,7 +18,6 @@ __pycache__/
 *.log
 *.out
 *.h5
-*.pth
 *.ckpt
 
 # Ignore Jupyter Notebook checkpoints
