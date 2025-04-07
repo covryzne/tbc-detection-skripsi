@@ -1,6 +1,6 @@
-# Ignore semua isi dalam TB_Chest_Radiography_Database kecuali README.md.txt
-dataset/TB_Chest_Radiography_Database/*
-!dataset/TB_Chest_Radiography_Database/README.md.txt
+# Ignore semua isi dalam TB_Chest_Radiography_Database 
+dataset/
+!dataset\README.MD
 
 # Ignore file kredensial Kaggle
 kaggle.json
@@ -31,3 +31,5 @@ dist/
 .vscode/
 .idea/
 *.swp
+
+
