@@ -25,10 +25,9 @@ export default function HeroSection({}: Props) {
               <span className="text-primary"> DEEP LEARNING </span>{" "}
             </span>
           </h1>
-          <p className="text-lg text-primaryBlack-300">
-            {content?.description}{" "}
-          </p>
-
+          <div className="text-lg font-light-100 text-primaryBlack-300">
+            {content?.description}
+          </div>
           {/* Buttons */}
           <div className="flex flex-row space-x-8 pt-10">
             <Link href="try-now">
@@ -36,9 +35,11 @@ export default function HeroSection({}: Props) {
                 {content?.cta_button}
               </button>
             </Link>
-            <button className="font-semibold text-primary transition hover:text-slate-500 focus:outline-none">
-              See more
-            </button>
+            <Link href="about">
+              <button className="font-semibold text-primary px-4 py-3 transition hover:text-slate-500 focus:outline-none">
+                See more
+              </button>
+            </Link>
           </div>
         </div>
         {/* Images */}
@@ -48,6 +49,7 @@ export default function HeroSection({}: Props) {
               className="object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.3)]"
               src={content?.images?.a}
               fill
+              sizes="100%"
               priority
               alt="Doctor Dashboard"
             />
