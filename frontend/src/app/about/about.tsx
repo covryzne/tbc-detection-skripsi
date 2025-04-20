@@ -52,15 +52,14 @@ const About: React.FC = () => {
             >
               <strong>TB Detector</strong> adalah sistem berbasis artificial
               intelligence (AI) yang dirancang untuk mendeteksi penyakit
-              tuberkulosis secara otomatis melalui citra X-Ray dada. Menggunakan
-              model deep learning DenseNet121, TB Detector mampu memberikan
-              hasil cepat, mudah, dan akurat dalam mendeteksi penyakit
-              tuberkulosis.
+              tuberkulosis secara otomatis melalui citra chest X-Ray.
+              Menggunakan model deep learning <strong>DenseNet121</strong>, TB
+              Detector mampu memberikan hasil cepat, mudah, dan akurat dalam
+              mendeteksi penyakit tuberkulosis.
             </p>
             <p style={{ textAlign: "justify", marginRight: "120px" }}>
-              <strong>Disclaimer:</strong> TB Detector bukan alat diagnosis
-              medis. Hasil deteksi hanya sebagai alat bantu dan harus
-              dikonfirmasi oleh dokter.
+              <strong>Disclaimer:</strong> TB Detector hanya alat bantu
+              diagnosis medis. Hasil deteksi harus dikonfirmasi oleh dokter.
             </p>
           </div>
         </div>

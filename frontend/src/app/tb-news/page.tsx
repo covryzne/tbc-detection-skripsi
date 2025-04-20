@@ -1,8 +1,8 @@
 import Header from "@/app/header";
 import Footer from "../footer";
-import AboutContent from "./about";
+import TbNews from "./tbNews";
 
-export default function About() {
+export default function tbNews() {
   return (
     <div className="flex flex-col min-h-screen bg-yellow-50/50">
       {/* Header */}
@@ -12,12 +12,12 @@ export default function About() {
       <main className="flex flex-col items-center justify-start flex-grow">
         <div className="flex flex-col space-y items-center mt-10 pt-[60pt]">
           <h1 className="font-bold text-center text-[3.2rem] text-primary">
-            ABOUT
+            TB NEWS
           </h1>
         </div>
         {/* AboutContent Section */}
-        <div className="my-10">
-          <AboutContent />
+        <div className="my-[3px]">
+          <TbNews />
         </div>
       </main>
 
