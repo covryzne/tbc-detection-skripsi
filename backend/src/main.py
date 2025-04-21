@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
 from fastapi_jwt_auth.exceptions import AuthJWTException
 
-from .api_router import router
+from src.api_router import router
 from .database import database
 
 # Define application

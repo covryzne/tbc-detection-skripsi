@@ -7,6 +7,7 @@ export default function Prediction() {
   const formRef = useRef<HTMLFormElement>(null);
   const [path, setPath] = useState<string | null>(null);
   const [file, setFile] = useState<File | null>(null);
+
   interface PredictionResults {
     predictions: {
       class_name: string;
@@ -29,6 +30,7 @@ export default function Prediction() {
       setFile(e.target.files[0]);
     }
   };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
@@ -52,8 +54,10 @@ export default function Prediction() {
       setResults(json);
     } catch (error) {
       console.error(error);
+      setLoading(false);
     }
   };
+
   const handleClear = () => {
     setResults(null);
     setPath(null);
@@ -96,7 +100,6 @@ export default function Prediction() {
               <path d="M9 13h2v5a1 1 0 11-2 0v-5z"></path>
             </svg>
             <span className="mt-2 text-sm">Select a CXR image file</span>
-
             <input
               type="file"
               className="hidden"
@@ -139,44 +142,49 @@ export default function Prediction() {
               onClick={handleClear}
               className="bg-primary rounded-full px-10 py-2 text-white hover:bg-sky-700 hover:shadow-sm transition-all cursor-pointer"
             >
-              {" "}
-              Clear{" "}
+              Clear
             </button>
           </div>
         ) : (
-          <button
-            type="submit"
-            className="bg-primary rounded-full px-10 py-2 text-white hover:bg-sky-800 hover:shadow-sm transition-all cursor-pointer"
-          >
-            {" "}
-            <div className="flex shrink-0 items-center space-x-2">
-              {loading ? (
-                <svg
-                  className="h-4 w-4 animate-spin text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="primary"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="primary"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-              ) : (
-                ""
-              )}
-              <span>Submit</span>
-            </div>
-          </button>
+          <>
+            <button
+              type="submit"
+              className="bg-primary rounded-full px-10 py-2 text-white hover:bg-sky-800 hover:shadow-sm transition-all cursor-pointer"
+            >
+              <div className="flex shrink-0 items-center space-x-2">
+                {loading && (
+                  <svg
+                    className="h-4 w-4 animate-spin text-white"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="primary"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="primary"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                )}
+                <span>Submit</span>
+              </div>
+            </button>
+
+            {/* Loading text muncul di sini */}
+            {loading && (
+              <p className="text-center text-primary text-gray-500 mt-2">
+                Memproses gambar...
+              </p>
+            )}
+          </>
         )}
       </form>
     </div>

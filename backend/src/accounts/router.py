@@ -69,3 +69,15 @@ async def create_user(user: UserCreate):
         "email": data.email,
         "is_admin": data.is_admin,
     }
+    
+@router.get("/test-db")
+async def test_db_connection():
+    try:
+        result = await database.fetch_one("SELECT 1")
+        if result:
+            return {"message": "Database connection successful 🎉"}
+        return {"message": "Connected, but got no result"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Database connection failed: {str(e)}")
+
+

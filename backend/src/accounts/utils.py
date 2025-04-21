@@ -2,7 +2,7 @@ from .models import User
 from .schemas import UserCreate
 from databases import Database
 
-DATABASE_URL = "postgresql://postgres:password@172.18.0.3:5432/voyage_imaging"
+DATABASE_URL = "postgresql://postgres:12345678@localhost:5432/skripsi-tb-detection"
 database = Database(DATABASE_URL)
 
 
