@@ -1,10 +1,47 @@
+"use client";
+
 import Image from "next/image";
-import React from "react";
+import Swal from "sweetalert2";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 type Props = {};
 
 export default function HeroSection({}: Props) {
+  const router = useRouter();
+  const [user, setUser] = useState<null | { email: string; is_admin: boolean }>(
+    null
+  );
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const token = localStorage.getItem("token");
+      if (token) {
+        try {
+          const payloadBase64 = token.split(".")[1];
+          const decodedPayload = JSON.parse(atob(payloadBase64));
+          const userData = JSON.parse(decodedPayload.sub);
+          setUser(userData);
+        } catch (err) {
+          console.error("Token tidak valid", err);
+          setUser(null);
+        }
+      } else {
+        setUser(null);
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    // Initial check
+    handleStorageChange();
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
   const content = {
     description:
       "Tuberkulosis masih menjadi ancaman kesehatan global. TB Detection hadir untuk membantu mendeteksi tuberkulosis dalam hitungan detik dengan didukung dengan teknologi Deep Learning",
@@ -13,6 +50,7 @@ export default function HeroSection({}: Props) {
       a: "/doctor.png",
     },
   };
+
   return (
     <section className="w-full">
       <div className="mx-auto grid max-w-7xl pt-8 grid-cols-1 md:grid-cols-[2fr_1fr]">
@@ -30,11 +68,33 @@ export default function HeroSection({}: Props) {
           </div>
           {/* Buttons */}
           <div className="flex flex-row space-x-8 pt-10">
-            <Link href="try-now">
-              <button className="rounded-md bg-primary px-10 py-3 font-semibold text-white transition hover:bg-sky-900/90 focus:outline-none">
-                {content?.cta_button}
-              </button>
-            </Link>
+            <button
+              onClick={() => {
+                const currentToken = localStorage.getItem("token");
+                if (!currentToken) {
+                  Swal.fire({
+                    title: "Akses Ditolak!",
+                    text: "Silakan login terlebih dahulu untuk menggunakan fitur deteksi.",
+                    icon: "warning",
+                    confirmButtonText: "OK",
+                    customClass: {
+                      confirmButton:
+                        "bg-primary text-white hover:bg-primary-dark hover:opacity-80 focus:ring-4 focus:ring-primary-dark",
+                    },
+                  }).then((result) => {
+                    if (result.isConfirmed) {
+                      router.push("/");
+                    }
+                  });
+                  return;
+                }
+
+                router.push("/try-now");
+              }}
+              className="rounded-md bg-primary px-10 py-3 font-semibold text-white transition hover:bg-sky-900/90 focus:outline-none"
+            >
+              {content?.cta_button}
+            </button>
             <Link href="about">
               <button className="font-semibold text-primary px-4 py-3 transition hover:text-slate-500 focus:outline-none">
                 See more
@@ -42,6 +102,7 @@ export default function HeroSection({}: Props) {
             </Link>
           </div>
         </div>
+
         {/* Images */}
         <div className="relative">
           <div className="absolute -right-8 -bottom-20 z-0 h-[650px] w-[500px]">

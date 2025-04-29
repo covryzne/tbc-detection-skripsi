@@ -1,27 +1,25 @@
 import uuid
-from .models import Patient
 from datetime import datetime
-from pydantic import BaseModel, validator, EmailStr
+from pydantic import BaseModel
+from typing import Optional
 
 
 class PatientCreate(BaseModel):
-    id: uuid.UUID = None
     name: str
-    age: int
-    gender: str = "male"
-    phone: str
-    address: str
-    doctor_id: uuid.UUID = None
+    age: Optional[int] = None
+    gender: Optional[str] = None  # Gender bisa nullable atau kosong
+    phone: Optional[str] = None
+    address: Optional[str] = None
 
 
 class PatientResponse(BaseModel):
     id: uuid.UUID
+    user_id: uuid.UUID
     name: str
-    age: int
-    gender: str
-    phone: str
-    address: str
-    doctor_id: uuid.UUID
+    age: Optional[int]
+    gender: Optional[str]
+    phone: Optional[str]
+    address: Optional[str]
 
     @staticmethod
     def parse(data):
@@ -29,12 +27,12 @@ class PatientResponse(BaseModel):
         def parse_one(data):
             return PatientResponse(**{
                 "id": data.id,
+                "user_id": data.user_id,
                 "name": data.name,
                 "age": data.age,
                 "gender": data.gender,
                 "phone": data.phone,
                 "address": data.address,
-                "doctor_id": data.doctor_id,
             })
         if isinstance(data, list):
             return [parse_one(item) for item in data]
@@ -44,17 +42,17 @@ class PatientResponse(BaseModel):
 class PatientRecordCreate(BaseModel):
     id: uuid.UUID = None
     date: datetime = datetime.now()
-    checkup_data: str = None
-    condition: str = None
+    checkup_data: Optional[str] = None
+    condition: Optional[str] = None
     patient_id: uuid.UUID = None
 
 
 class PatientRecordResponse(BaseModel):
-    id: uuid.UUID = None
-    date: datetime = None
-    checkup_data: str = None
-    condition: str = None
-    patient_id: uuid.UUID = None
+    id: uuid.UUID
+    date: datetime
+    checkup_data: Optional[str] = None
+    condition: Optional[str] = None
+    patient_id: uuid.UUID
 
     @staticmethod
     def parse(data):

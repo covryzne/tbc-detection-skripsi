@@ -30,6 +30,10 @@ async def get_patients(patient_id: str , Authorize: AuthJWT = Depends()):
 
     Authorize.jwt_required()
     user = json.loads(Authorize.get_jwt_subject())
+    
+    if user["is_admin"] is False and user["id"] != patient_id:
+        raise HTTPException(status_code=403, detail="You are not allowed to access this patient's data.")
+    
     try:
         query = patients.select().where(Patient.id == patient_id)
         patient = await database.fetch_one(query)

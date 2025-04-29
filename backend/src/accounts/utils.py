@@ -13,7 +13,7 @@ async def create_admin():
     await database.connect()
     print("Creating admin")
 
-    data = {'full_name': 'Admin', 'email': 'admin@admin.com', 'password': 'password'}
+    data = {'full_name': 'Admin', 'email': 'admin@admin.com', 'password': 'password', 'is_admin': True}
     user = UserCreate(**data)
     user.hash_password()
     query = User.__table__.insert().values(**user.dict()).returning(User)

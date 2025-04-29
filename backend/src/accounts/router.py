@@ -1,5 +1,6 @@
 import uuid
 import json
+import logging
 from fastapi import APIRouter, HTTPException, Depends, Request, Response, status
 from fastapi.responses import JSONResponse
 from fastapi_jwt_auth import AuthJWT
@@ -53,22 +54,45 @@ def user(Authorize: AuthJWT = Depends()):
     return {"user": json.loads(current_user)}
 
 
+logging.basicConfig(level=logging.INFO)
+
 @router.post("/users/", status_code=status.HTTP_201_CREATED, response_model=UserResponse)
 async def create_user(user: UserCreate):
+    try:
+        # Cek apakah email sudah terdaftar
+        query = User.__table__.select().where(User.email == user.email)
+        existing_user = await database.fetch_one(query)
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email sudah digunakan.")
 
-    query = User.__table__.select().where(User.email == user.email)
-    existing_user = await database.fetch_one(query)
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
-    user.hash_password()
-    query = User.__table__.insert().values(**user.dict()).returning(User)
-    data = await database.fetch_one(query)
-    return {
-        "id": data.id,
-        "full_name": data.full_name,
-        "email": data.email,
-        "is_admin": data.is_admin,
-    }
+        # Cek password dan confirm_password sudah dicek di validator Pydantic
+
+        # Hash password
+        user.hash_password()
+
+        # Buat query insert user
+        user_dict = user.dict()
+        user_dict.pop("confirm_password")  # Tidak perlu disimpan di DB
+
+        logging.info(f"Creating user with email: {user.email}")
+
+        query = User.__table__.insert().values(**user_dict).returning(User.__table__)
+        data = await database.fetch_one(query)
+
+        logging.info(f"User created: {data}")
+
+        return {
+            "id": data.id,
+            "full_name": data.full_name,
+            "email": data.email,
+            "is_admin": data.is_admin,
+        }
+
+    except HTTPException as http_exc:
+        raise http_exc
+    except Exception as e:
+        logging.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
     
 @router.get("/test-db")
 async def test_db_connection():

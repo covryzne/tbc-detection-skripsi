@@ -12,7 +12,7 @@ router.include_router(patients.router)
 @router.get("/")
 async def api():
     """Returns data from api"""
-    return {"message": "Welcome to API"}
+    return {"message": "Welcome to API UDAH KONEK"}
 
 
 @router.post("/predict")
