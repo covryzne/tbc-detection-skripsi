@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import LungLogo from "./components/icons/LungLogo";
+import LungLogo from "@/icons/LungLogo";
 
 export default function Header() {
   const rawPathname = usePathname();
@@ -33,7 +33,7 @@ export default function Header() {
   };
 
   useEffect(() => {
-    setPathname(rawPathname);
+    setPathname(rawPathname || "");
     checkUserFromToken();
   }, [rawPathname]);
 

@@ -8,9 +8,7 @@ const LungLogo = (props: React.SVGProps<SVGSVGElement>) => (
     x="0px"
     y="0px"
     viewBox="0 0 514.327 514.327"
-    style={{
-      enableBackground: "new 0 0 514.327 514.327",
-    }}
+    enable-background="new 0 0 514.327 514.327"
     xmlSpace="preserve"
     {...props}
   >

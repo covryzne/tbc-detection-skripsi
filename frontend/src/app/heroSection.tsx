@@ -97,7 +97,7 @@ export default function HeroSection({}: Props) {
             </button>
             <Link href="about">
               <button className="font-semibold text-primary px-4 py-3 transition hover:text-slate-500 focus:outline-none">
-                See more
+                Lebih lengkap
               </button>
             </Link>
           </div>

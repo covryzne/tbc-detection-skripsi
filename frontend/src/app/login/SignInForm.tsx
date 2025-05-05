@@ -64,7 +64,7 @@ const SignInForm = () => {
         type="submit"
         className="w-full py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        Sign In
+        Login
       </button>
     </form>
   );

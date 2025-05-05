@@ -116,7 +116,7 @@ const SignUpForm = () => {
         type="submit"
         className="w-full py-3 bg-primary text-white rounded-md"
       >
-        Sign Up
+        Create Account
       </button>
     </form>
   );
