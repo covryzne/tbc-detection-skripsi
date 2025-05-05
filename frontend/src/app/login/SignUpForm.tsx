@@ -46,6 +46,7 @@ const SignUpForm = () => {
         <label className="block text-sm font-medium mb-1">Full Name</label>
         <input
           type="text"
+          placeholder="Enter your full name here"
           value={fullName}
           onChange={(e) => setFullName(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md"
@@ -57,6 +58,7 @@ const SignUpForm = () => {
         <label className="block text-sm font-medium mb-1">Email</label>
         <input
           type="email"
+          placeholder="Enter your email here"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md"
@@ -68,6 +70,7 @@ const SignUpForm = () => {
         <label className="block text-sm font-medium mb-1">Password</label>
         <input
           type={showPassword ? "text" : "password"}
+          placeholder="Enter your password here"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md"
@@ -92,6 +95,7 @@ const SignUpForm = () => {
         </label>
         <input
           type={showConfirmPassword ? "text" : "password"}
+          placeholder="Confirm your password here"
           value={confirmPassword}
           onChange={(e) => setConfirmPassword(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md"
@@ -116,7 +120,7 @@ const SignUpForm = () => {
         type="submit"
         className="w-full py-3 bg-primary text-white rounded-md"
       >
-        Sign Up
+        Create Account
       </button>
     </form>
   );

@@ -15,7 +15,7 @@ const SignInForm = () => {
     try {
       const res = await axios.post("/api/v1/token", { email, password });
       localStorage.setItem("token", res.data.access_token);
-      router.push("/");
+      router.push("/admin/dashboard");
     } catch (err: any) {
       setError("Login gagal. Periksa kembali email dan password.");
     }
@@ -29,6 +29,7 @@ const SignInForm = () => {
         <label className="block text-sm font-medium">Email</label>
         <input
           type="email"
+          placeholder="Enter your email here"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -40,6 +41,7 @@ const SignInForm = () => {
         <label className="block text-sm font-medium">Password</label>
         <input
           type={showPassword ? "text" : "password"}
+          placeholder="Enter your password here"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -64,7 +66,7 @@ const SignInForm = () => {
         type="submit"
         className="w-full py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
       >
-        Sign In
+        Login
       </button>
     </form>
   );

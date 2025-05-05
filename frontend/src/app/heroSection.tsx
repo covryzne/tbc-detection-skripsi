@@ -77,10 +77,7 @@ export default function HeroSection({}: Props) {
                     text: "Silakan login terlebih dahulu untuk menggunakan fitur deteksi.",
                     icon: "warning",
                     confirmButtonText: "OK",
-                    customClass: {
-                      confirmButton:
-                        "bg-primary text-white hover:bg-primary-dark hover:opacity-80 focus:ring-4 focus:ring-primary-dark",
-                    },
+                    confirmButtonColor: "#001A6E",
                   }).then((result) => {
                     if (result.isConfirmed) {
                       router.push("/");
@@ -97,7 +94,7 @@ export default function HeroSection({}: Props) {
             </button>
             <Link href="about">
               <button className="font-semibold text-primary px-4 py-3 transition hover:text-slate-500 focus:outline-none">
-                See more
+                Lebih lengkap
               </button>
             </Link>
           </div>
