@@ -1,0 +1,97 @@
+{
+  "results": [
+    {
+      "id": "p001",
+      "patientName": "Ahmad Rizky",
+      "patientId": "PT2025001",
+      "date": "2025-05-01",
+      "status": "positive",
+      "confidence": 92,
+      "imageUrl": "/samples/xray1.jpg",
+      "details": "Analysis shows clear signs consistent with tuberculosis infection in the upper right lung. Please consult with a healthcare professional for further examination."
+    },
+    {
+      "id": "p002",
+      "patientName": "Siti Nurhayati",
+      "patientId": "PT2025002",
+      "date": "2025-05-02",
+      "status": "negative",
+      "confidence": 89,
+      "imageUrl": "/samples/xray2.jpg",
+      "details": "No significant signs of tuberculosis detected in the sample. Regular follow-up recommended as preventive measure."
+    },
+    {
+      "id": "p003",
+      "patientName": "Budi Santoso",
+      "patientId": "PT2025003",
+      "date": "2025-05-03",
+      "status": "positive",
+      "confidence": 87,
+      "imageUrl": "/samples/xray3.jpg",
+      "details": "Analysis indicates moderate signs of tuberculosis infection in both lungs. Immediate consultation with pulmonologist is recommended."
+    },
+    {
+      "id": "p004",
+      "patientName": "Dewi Lestari",
+      "patientId": "PT2025004",
+      "date": "2025-05-04",
+      "status": "negative",
+      "confidence": 95,
+      "imageUrl": "/samples/xray4.jpg",
+      "details": "No signs of tuberculosis detected. Lung structures appear normal and healthy."
+    },
+    {
+      "id": "p005",
+      "patientName": "Eko Prasetyo",
+      "patientId": "PT2025005",
+      "date": "2025-05-05",
+      "status": "indeterminate",
+      "confidence": 62,
+      "imageUrl": "/samples/xray5.jpg",
+      "details": "Results are inconclusive. Some anomalies detected but not specific to tuberculosis. Additional testing recommended."
+    }
+  ],
+  "recentPredictions": [
+    {
+      "id": "p001",
+      "patientName": "Ahmad Rizky",
+      "date": "2025-05-01",
+      "status": "positive",
+      "confidence": 92
+    },
+    {
+      "id": "p002",
+      "patientName": "Siti Nurhayati",
+      "date": "2025-05-02",
+      "status": "negative",
+      "confidence": 89
+    },
+    {
+      "id": "p003",
+      "patientName": "Budi Santoso",
+      "date": "2025-05-03",
+      "status": "positive",
+      "confidence": 87
+    }
+  ],
+  "stats": {
+    "totalPredictions": 128,
+    "positiveResults": 47,
+    "negativeResults": 81,
+    "averageConfidence": 88.3
+  },
+  "xraySteps": [
+    {
+      "title": "Image Processing",
+      "description": "The uploaded X-ray image is preprocessed to enhance features that may indicate tuberculosis infection."
+    },
+    {
+      "title": "AI Analysis",
+      "description": "Our advanced convolutional neural network, trained on thousands of X-ray images, analyzes the preprocessed image."
+    },
+    {
+      "title": "Result Generation",
+      "description": "The AI provides a detection result with confidence score based on identified patterns associated with TB infection."
+    }
+  ]
+}

@@ -1,15 +1,17 @@
+// components/app-sidebar.tsx
 "use client";
 
 import * as React from "react";
+import { useState, useEffect } from "react";
 import {
   IconDashboard,
   IconLungs,
   IconHistory,
   IconUser,
   IconChartBar,
+  IconSettings,
   IconInnerShadowTop,
 } from "@tabler/icons-react";
-
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import {
@@ -22,42 +24,46 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 
-const data = {
-  user: {
-    name: "User Name",
-    email: "user@example.com",
-    avatar: "/api/placeholder/40/40",
-  },
-  navMain: [
-    {
-      title: "Dashboard",
-      url: "/admin/dashboard",
-      icon: IconDashboard,
-    },
-    {
-      title: "Prediksi TB",
-      url: "/admin/prediksi",
-      icon: IconLungs,
-    },
-    {
-      title: "Riwayat Deteksi",
-      url: "/admin/riwayat",
-      icon: IconHistory,
-    },
-    {
-      title: "Profile",
-      url: "/admin/profile",
-      icon: IconUser,
-    },
-    {
-      title: "Evaluation Metrics",
-      url: "/admin/metrics",
-      icon: IconChartBar,
-    },
-  ],
-};
-
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+  const [user, setUser] = useState<{
+    avatar: string;
+    name: string;
+    email: string;
+    is_admin: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      setUser(JSON.parse(storedUser));
+    }
+  }, []);
+
+  const navMain = user?.is_admin
+    ? [
+        { title: "Dashboard", url: "/admin/dashboard", icon: IconDashboard },
+        { title: "TB Prediction", url: "/admin/prediction", icon: IconLungs },
+        { title: "History", url: "/admin/history", icon: IconHistory },
+        {
+          title: "Evaluation Metrics",
+          url: "/admin/metrics",
+          icon: IconChartBar,
+        },
+        { title: "Users", url: "/admin/users", icon: IconUser },
+        { title: "Settings", url: "/admin/settings", icon: IconSettings },
+      ]
+    : [
+        { title: "Dashboard", url: "/user/dashboard", icon: IconDashboard },
+        { title: "TB Prediction", url: "/user/prediction", icon: IconLungs },
+        { title: "History", url: "/user/history", icon: IconHistory },
+        {
+          title: "Evaluation Metrics",
+          url: "/user/metrics",
+          icon: IconChartBar,
+        },
+        { title: "Settings", url: "/user/settings", icon: IconSettings },
+      ];
+
   return (
     <Sidebar
       collapsible="offcanvas"
@@ -71,7 +77,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               asChild
               className="data-[slot=sidebar-menu-button]:!p-1.5"
             >
-              <a href="/admin/dashboard">
+              <a href={user?.is_admin ? "/admin/dashboard" : "/user/dashboard"}>
                 <IconInnerShadowTop className="!size-5 text-[#001A6E]" />
                 <span className="text-base font-semibold text-[#001A6E]">
                   TBC Detection
@@ -82,10 +88,20 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
+        <NavMain items={navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser
+          user={
+            user
+              ? { ...user, avatar: user.avatar || "/api/placeholder/40/40" }
+              : {
+                  name: "Guest",
+                  email: "No email",
+                  avatar: "/api/placeholder/40/40",
+                }
+          }
+        />
       </SidebarFooter>
     </Sidebar>
   );

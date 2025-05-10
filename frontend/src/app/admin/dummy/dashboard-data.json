@@ -1,0 +1,82 @@
+{
+  "detectionData": [
+    { "month": "Jan", "detections": 45, "positives": 12 },
+    { "month": "Feb", "detections": 52, "positives": 15 },
+    { "month": "Mar", "detections": 61, "positives": 18 },
+    { "month": "Apr", "detections": 67, "positives": 22 },
+    { "month": "May", "detections": 75, "positives": 25 },
+    { "month": "Jun", "detections": 80, "positives": 27 }
+  ],
+  "regionalData": [
+    { "region": "Jakarta", "detections": 145, "positives": 42 },
+    { "region": "Bandung", "detections": 112, "positives": 38 },
+    { "region": "Surabaya", "detections": 95, "positives": 35 },
+    { "region": "Medan", "detections": 78, "positives": 26 },
+    { "region": "Makassar", "detections": 65, "positives": 22 },
+    { "region": "Yogyakarta", "detections": 88, "positives": 30 },
+    { "region": "Semarang", "detections": 72, "positives": 25 },
+    { "region": "Palembang", "detections": 60, "positives": 20 },
+    { "region": "Denpasar", "detections": 50, "positives": 18 },
+    { "region": "Balikpapan", "detections": 40, "positives": 15 }
+  ],
+  "recentActivity": [
+    {
+      "userId": "U001",
+      "user": "Ahmad Fauzi",
+      "date": "May 5, 2025 09:25",
+      "region": "Jakarta",
+      "result": "Positive",
+      "confidence": "97.8%"
+    },
+    {
+      "userId": "U002",
+      "user": "Budi Santoso",
+      "date": "May 5, 2025 08:42",
+      "region": "Bandung",
+      "result": "Negative",
+      "confidence": "95.2%"
+    },
+    {
+      "userId": "U003",
+      "user": "Siti Rahayu",
+      "date": "May 4, 2025 16:12",
+      "region": "Surabaya",
+      "result": "Positive",
+      "confidence": "94.5%"
+    }
+  ],
+  "summaryCards": [
+    {
+      "title": "Total Detections",
+      "value": "1,245",
+      "description": "All-time TB detection scans",
+      "iconType": "analysis",
+      "trend": "+12% from last month",
+      "trendUp": true
+    },
+    {
+      "title": "Positive Cases",
+      "value": "327",
+      "description": "Detected TB positive cases",
+      "iconType": "lungs",
+      "trend": "+8% from last month",
+      "trendUp": true
+    },
+    {
+      "title": "Model Accuracy",
+      "value": "95.4%",
+      "description": "Overall detection accuracy",
+      "iconType": "chart",
+      "trend": "+1.2% from last version",
+      "trendUp": true
+    },
+    {
+      "title": "Active Users",
+      "value": "842",
+      "description": "Users utilizing TB detection",
+      "iconType": "users",
+      "trend": "+24% from last month",
+      "trendUp": true
+    }
+  ]
+}

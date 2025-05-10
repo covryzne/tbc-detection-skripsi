@@ -1,3 +1,6 @@
+// login/SignInForm.tsx
+"use client";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import axios from "@/lib/axios";
@@ -14,17 +17,30 @@ const SignInForm = () => {
     e.preventDefault();
     try {
       const res = await axios.post("/api/v1/token", { email, password });
-      localStorage.setItem("token", res.data.access_token);
-      router.push("/admin/dashboard");
+      const { access_token } = res.data;
+
+      const userRes = await axios.get("/api/v1/users/me", {
+        headers: { Authorization: `Bearer ${access_token}` },
+      });
+      const user = userRes.data.user;
+
+      document.cookie = `auth_token=${access_token}; path=/; max-age=1800`;
+      localStorage.setItem("user", JSON.stringify(user));
+
+      if (user.is_admin) {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/user/dashboard");
+      }
     } catch (err: any) {
       setError("Login gagal. Periksa kembali email dan password.");
+      console.error(err);
     }
   };
 
   return (
     <form onSubmit={handleLogin} className="space-y-4">
       <h2 className="text-2xl font-semibold text-center">Sign In</h2>
-
       <div>
         <label className="block text-sm font-medium">Email</label>
         <input
@@ -36,7 +52,6 @@ const SignInForm = () => {
           required
         />
       </div>
-
       <div className="relative">
         <label className="block text-sm font-medium">Password</label>
         <input
@@ -59,9 +74,7 @@ const SignInForm = () => {
           )}
         </button>
       </div>
-
       {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-
       <button
         type="submit"
         className="w-full py-2 bg-primary text-white rounded-md hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"

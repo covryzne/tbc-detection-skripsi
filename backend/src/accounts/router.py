@@ -28,21 +28,32 @@ def get_config():
 
 
 @router.post('/token')
-async def login(user: UserLogin, Authorize: AuthJWT = Depends()):
+async def login(user: UserLogin, Authorize: AuthJWT = Depends(), response: Response = None):
     query = User.__table__.select().where(User.email == user.email)
     existing_user = await database.fetch_one(query)
     if not existing_user:
         raise HTTPException(status_code=400, detail="Email does not exist.")
-
     if not user.check_password(existing_user.password):
         raise HTTPException(status_code=400, detail="Password mismatch.")
-
+    
     data = {
         "id": str(existing_user.id),
         "email": existing_user.email,
         "is_admin": existing_user.is_admin,
     }
     access_token = Authorize.create_access_token(subject=json.dumps(data))
+    
+    # Set cookie
+    response.set_cookie(
+        key="auth_token",
+        value=access_token,
+        httponly=True,  # Biar gak bisa diakses via JavaScript
+        max_age=1800,   # 30 menit
+        path="/",
+        secure=False,   # Set true di production (HTTPS)
+        samesite="lax"  # Cegah CSRF
+    )
+    
     return {"access_token": access_token}
 
 
@@ -93,6 +104,11 @@ async def create_user(user: UserCreate):
     except Exception as e:
         logging.error(f"Error creating user: {str(e)}")
         raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
+    
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie(key="auth_token", path="/")
+    return {"message": "Logged out successfully"}
     
 @router.get("/test-db")
 async def test_db_connection():
