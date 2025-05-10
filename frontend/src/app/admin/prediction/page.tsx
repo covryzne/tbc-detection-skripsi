@@ -1,4 +1,3 @@
-// app/user/prediction/page.tsx
 "use client";
 
 import { useState, useEffect, SetStateAction } from "react";
@@ -20,6 +19,7 @@ import { HowItWorks } from "@/components/admin/HowItWorks";
 import { ComingSoon } from "@/components/admin/ComingSoon";
 import { Card, CardContent } from "@/components/ui/card";
 import { IconDownload, IconPlus } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 export default function PrediksiPage() {
   const router = useRouter();
@@ -103,23 +103,15 @@ export default function PrediksiPage() {
     },
   ];
 
-  // Ambil data user dari localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
       setCurrentUser(parsedUser);
-      // Pre-fill userData untuk user yang login
-      setUserData({
-        userId: parsedUser.id,
-        name: parsedUser.name,
-        dateTime: getCurrentDateTime(),
-        region: parsedUser.region || "Unknown",
-      });
     }
   }, []);
 
-  // Function to generate a random user ID (opsional, gak dipake kalau pake ID user asli)
+  // Function to generate a random user ID
   const generateUserId = () => {
     const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
     return `USR-${randomPart}`;
@@ -153,7 +145,7 @@ export default function PrediksiPage() {
 
     // Update userData
     setUserData({
-      userId: currentUser?.id || generateUserId(),
+      userId: generateUserId(),
       name: userName,
       dateTime: getCurrentDateTime(),
       region: userRegion,
@@ -161,9 +153,9 @@ export default function PrediksiPage() {
 
     // Simpan ke backend (opsional)
     axios
-      .patch("/api/v1/users/me", { name: userName, region: userRegion })
+      .post("/api/v1/users/temp", { name: userName, region: userRegion })
       .catch((err) => {
-        console.error("Error updating user:", err);
+        console.error("Error saving user:", err);
       });
 
     // Close dialog and reset form
@@ -177,26 +169,111 @@ export default function PrediksiPage() {
     setActiveTab(value);
   };
 
-  // Simulate API analysis call
-  const handleAnalyzeRequest = async (file: any) => {
+  // Fungsi untuk memicu toast saat memilih file tanpa user
+  const handleValidationError = () => {
+    toast.error("Harap masukkan data terlebih dahulu", {
+      description:
+        "Silakan tambahkan user sebelum memilih file untuk analisis.",
+    });
+  };
+
+  // Simpan hasil prediksi ke backend
+  const handleSaveResult = async (result: any) => {
+    if (!userData) return false;
+
     try {
-      // Kirim file ke backend untuk analisis
+      await axios.post("/api/v1/predictions/save", {
+        userId: userData.userId,
+        status: result.status,
+        confidence: result.confidence,
+        details: result.details,
+        date: result.date,
+        fileName: result.fileName,
+        fileSize: result.fileSize,
+        fileType: result.fileType,
+        analyzedAt: result.analyzedAt,
+      });
+      toast.success("Hasil prediksi berhasil disimpan");
+      return true;
+    } catch (err) {
+      console.error("Error saving result:", err);
+      toast.error("Gagal menyimpan hasil prediksi", {
+        description: "Terjadi kesalahan saat menyimpan. Silakan coba lagi.",
+      });
+      return false;
+    }
+  };
+
+  // Panggilan API ke /api/v1/predict
+  const handleAnalyzeRequest = async (file: File) => {
+    // Validasi userData
+    if (!userData) {
+      toast.error("Harap masukkan data terlebih dahulu", {
+        description: "Silakan tambahkan user sebelum melakukan analisis.",
+      });
+      return null;
+    }
+
+    try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("userId", userData?.userId || "");
+      formData.append("userId", userData.userId);
       formData.append("type", activeTab);
 
-      const res = await axios.post("/api/v1/predictions", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await fetch(
+        process.env.NEXT_PUBLIC_API_URL + "/api/v1/predict",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
 
-      return res.data; // Misal { status: "positive", confidence: 85, details: "..." }
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || `HTTP error! status: ${response.status}`
+        );
+      }
+
+      // Pemetaan class_name ke status
+      let status: "positive" | "negative" | "error";
+      const className = result.predictions.class_name.toLowerCase();
+      if (className === "tuberculosis" || className === "tbc") {
+        status = "positive";
+      } else if (className === "normal") {
+        status = "negative";
+      } else {
+        throw new Error(`Unexpected class_name: ${className}`);
+      }
+
+      // Normalisasi confidence ke dua digit (maksimum 100%)
+      const confidence = Math.min(
+        parseFloat(result.predictions.confidence.toFixed(2)),
+        100
+      );
+
+      return {
+        status,
+        confidence,
+        details: `Inference time: ${result.inference_time}`,
+        fileName: file.name,
+        date: new Date().toLocaleDateString(),
+      };
     } catch (err) {
       console.error("Error analyzing file:", err);
+      toast.error("Gagal menganalisis file", {
+        description:
+          (err instanceof Error ? err.message : "Unknown error") ||
+          "Terjadi kesalahan saat menganalisis. Silakan coba lagi.",
+      });
       return {
         status: "error",
         confidence: 0,
-        details: "Failed to analyze the sample.",
+        details:
+          err instanceof Error ? err.message : "Failed to analyze the sample.",
+        fileName: file.name,
+        date: new Date().toLocaleDateString(),
       };
     }
   };
@@ -368,7 +445,11 @@ export default function PrediksiPage() {
                     fileTypes="image/png,image/jpeg"
                     fileTypesDescription="Upload X-ray image in PNG or JPG format"
                     analyzeButtonText="Analyze X-ray"
+                    userId={userData?.userId}
                     onAnalyzeRequested={handleAnalyzeRequest}
+                    onSaveResult={handleSaveResult}
+                    hasUser={!!userData}
+                    onValidationError={handleValidationError}
                   />
                   <HowItWorks
                     title="How X-Ray Analysis Works"
@@ -379,7 +460,7 @@ export default function PrediksiPage() {
 
                 <TabsContent value="sputum" className="space-y-4">
                   <ComingSoon
-                    title="Sputu Sample Analysis"
+                    title="Sputum Sample Analysis"
                     description="Upload sputum sample microscopy images for TB detection"
                     message="The sputum sample analysis module is under development and will be available in the next update."
                   />

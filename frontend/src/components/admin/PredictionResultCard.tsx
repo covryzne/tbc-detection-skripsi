@@ -12,14 +12,13 @@ import { Button } from "@/components/ui/button";
 import {
   IconCircleCheck,
   IconAlertCircle,
-  IconInfoCircle,
   IconLungs,
   IconDeviceFloppy,
 } from "@tabler/icons-react";
 
 interface PredictionResultProps {
   result: {
-    status: "positive" | "negative" | "indeterminate" | null;
+    status: "positive" | "negative" | "error" | null;
     confidence: number | null;
     details?: string;
     date?: string;
@@ -57,7 +56,7 @@ export function PredictionResultCard({
           alertClass: "bg-red-50 border-red-200",
           titleClass: "text-red-600",
           statusClass: "text-red-600",
-          statusText: "Positive",
+          statusText: "Positive (TBC)",
         };
       case "negative":
         return {
@@ -66,20 +65,20 @@ export function PredictionResultCard({
           alertClass: "bg-green-50 border-green-200",
           titleClass: "text-green-600",
           statusClass: "text-green-600",
-          statusText: "Negative",
+          statusText: "Negative (Normal)",
         };
-      case "indeterminate":
+      case "error":
         return {
-          icon: <IconInfoCircle className="h-5 w-5 text-amber-600" />,
-          title: "Results Indeterminate",
-          alertClass: "bg-amber-50 border-amber-200",
-          titleClass: "text-amber-600",
-          statusClass: "text-amber-600",
-          statusText: "Indeterminate",
+          icon: <IconAlertCircle className="h-5 w-5 text-gray-600" />,
+          title: "Analysis Failed",
+          alertClass: "bg-gray-50 border-gray-200",
+          titleClass: "text-gray-600",
+          statusClass: "text-gray-600",
+          statusText: "Error",
         };
       default:
         return {
-          icon: <IconInfoCircle className="h-5 w-5 text-gray-600" />,
+          icon: <IconAlertCircle className="h-5 w-5 text-gray-600" />,
           title: "Unknown Result",
           alertClass: "bg-gray-50 border-gray-200",
           titleClass: "text-gray-600",
@@ -94,13 +93,13 @@ export function PredictionResultCard({
   const getNextStepsText = () => {
     switch (result.status) {
       case "positive":
-        return "Please consult with a healthcare professional immediately. This AI detection is not a clinical diagnosis, but indicates further medical evaluation is necessary.";
+        return "Segera konsultasikan dengan tenaga medis profesional. Deteksi AI ini bukan diagnosis klinis, tetapi menunjukkan perlunya evaluasi medis lebih lanjut.";
       case "negative":
-        return "While no TB signs were detected, if you experience persistent symptoms, please consult with a healthcare professional. Regular check-ups are recommended.";
-      case "indeterminate":
-        return "Further testing is recommended. The analysis detected some anomalies but couldn't conclusively determine if they indicate tuberculosis. Please consult with a healthcare professional.";
+        return "Tidak ada tanda-tanda TBC terdeteksi. Namun, jika Anda mengalami gejala yang berlangsung lama, konsultasikan dengan tenaga medis profesional. Pemeriksaan rutin disarankan.";
+      case "error":
+        return "Terjadi kesalahan saat analisis. Silakan coba unggah ulang gambar atau hubungi dukungan jika masalah berlanjut.";
       default:
-        return "Please consult with a healthcare professional for proper evaluation and diagnosis.";
+        return "Silakan konsultasikan dengan tenaga medis profesional untuk evaluasi dan diagnosis yang tepat.";
     }
   };
 
@@ -133,7 +132,9 @@ export function PredictionResultCard({
               <span className="text-sm text-gray-500">
                 Analysis confidence:
               </span>
-              <span className="font-medium">{result.confidence}%</span>
+              <span className="font-medium">
+                {result.confidence !== null ? `${result.confidence}%` : "N/A"}
+              </span>
             </div>
             <div className="flex justify-between">
               <span className="text-sm text-gray-500">Result:</span>
@@ -149,7 +150,7 @@ export function PredictionResultCard({
             </div>
           </div>
         </CardContent>
-        {onSaveResult && userId && (
+        {onSaveResult && userId && result.status !== "error" && (
           <CardFooter className="pt-2 pb-3 border-t">
             <Button
               className="w-full"
@@ -158,7 +159,7 @@ export function PredictionResultCard({
               disabled={isSaved}
             >
               <IconDeviceFloppy className="h-4 w-4 mr-2" />
-              {isSaved ? "Result Saved" : "Save Result to User Record"}
+              {isSaved ? "Result Saved" : "Save Result"}
             </Button>
           </CardFooter>
         )}
@@ -168,7 +169,7 @@ export function PredictionResultCard({
         <div className="flex gap-2 items-start">
           <IconLungs className="h-5 w-5 text-blue-600 mt-0.5" />
           <div>
-            <h4 className="font-medium text-blue-800">Next Steps</h4>
+            <h4 className="font-medium text-blue-800">Langkah Selanjutnya</h4>
             <p className="text-sm text-blue-700 mt-1">{getNextStepsText()}</p>
           </div>
         </div>

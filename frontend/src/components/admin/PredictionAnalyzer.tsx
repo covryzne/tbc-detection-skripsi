@@ -22,6 +22,8 @@ interface PredictionAnalyzerProps {
   onFileSelected?: (file: File | null) => void;
   onAnalyzeRequested?: (file: File) => Promise<any>;
   onSaveResult?: (result: any) => boolean;
+  hasUser?: boolean;
+  onValidationError?: () => void;
 }
 
 export function PredictionAnalyzer({
@@ -36,11 +38,13 @@ export function PredictionAnalyzer({
   onFileSelected,
   onAnalyzeRequested,
   onSaveResult,
+  hasUser = true,
+  onValidationError,
 }: PredictionAnalyzerProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<{
-    status: "positive" | "negative" | null;
+    status: "positive" | "negative" | "error" | null;
     confidence: number | null;
     details?: string;
     fileName?: string;
@@ -66,37 +70,19 @@ export function PredictionAnalyzer({
     setIsAnalyzing(true);
 
     try {
-      let resultData;
-
       if (onAnalyzeRequested) {
-        // Use the provided analyze function
-        resultData = await onAnalyzeRequested(selectedFile);
-      } else {
-        // Simulate analysis with timeout (default behavior)
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-
-        // Generate random result for demo purposes
-        const rand = Math.random();
-        const isPositive = rand > 0.7;
-        const confidence = 70 + Math.floor(Math.random() * 25);
-
-        resultData = {
-          status: isPositive ? "positive" : "negative",
-          confidence: confidence,
-          details: isPositive
-            ? "Analysis shows signs consistent with tuberculosis infection. Please consult with a healthcare professional for further examination."
-            : "No significant signs of tuberculosis detected in the sample.",
-        };
+        const resultData = await onAnalyzeRequested(selectedFile);
+        setResult(resultData);
       }
-
-      // Add filename and date to result data
-      resultData.fileName = selectedFile.name;
-      resultData.date = new Date().toLocaleDateString();
-
-      setResult(resultData);
     } catch (error) {
       console.error("Analysis failed:", error);
-      // Handle error appropriately
+      setResult({
+        status: "error",
+        confidence: 0,
+        details: "Failed to analyze the sample.",
+        fileName: selectedFile.name,
+        date: new Date().toLocaleDateString(),
+      });
     } finally {
       setIsAnalyzing(false);
     }
@@ -135,6 +121,8 @@ export function PredictionAnalyzer({
               onProcess={analyzeSample}
               processButtonText={analyzeButtonText}
               processingText={analyzingText}
+              hasUser={hasUser}
+              onValidationError={onValidationError}
             />
           </div>
 

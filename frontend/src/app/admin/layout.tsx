@@ -1,4 +1,3 @@
-// app/admin/layout.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,6 +6,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function AdminLayout({
   children,
@@ -15,24 +15,22 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
-  const [isClientLoading, setIsClientLoading] = useState(true); // Ganti isLoading jadi client-specific
+  const [isClientLoading, setIsClientLoading] = useState(true);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     const userData = storedUser ? JSON.parse(storedUser) : {};
     setUser(userData);
-    setIsClientLoading(false); // Matikan loading setelah cek localStorage
+    setIsClientLoading(false);
 
     if (!userData?.is_admin) {
       router.push("/user/dashboard");
     }
   }, [router]);
 
-  // Render Skeleton di client-side selama isClientLoading
   if (isClientLoading) {
     return (
       <div className="flex h-screen bg-gray-100">
-        {/* Skeleton untuk Sidebar */}
         <div className="w-64 bg-white border-r">
           <div className="p-4">
             <Skeleton className="h-8 w-3/4 mb-4" />
@@ -46,7 +44,6 @@ export default function AdminLayout({
             </div>
           </div>
         </div>
-        {/* Skeleton untuk Header dan Konten */}
         <div className="flex-1 flex flex-col">
           <div className="bg-white border-b p-4">
             <Skeleton className="h-10 w-1/2" />
@@ -60,7 +57,6 @@ export default function AdminLayout({
     );
   }
 
-  // Render konten utama (sama di server dan client)
   return (
     <SidebarProvider>
       <AppSidebar variant="inset" />
@@ -68,6 +64,7 @@ export default function AdminLayout({
         <SiteHeader />
         <main>{children}</main>
       </SidebarInset>
+      <Toaster />
     </SidebarProvider>
   );
 }
