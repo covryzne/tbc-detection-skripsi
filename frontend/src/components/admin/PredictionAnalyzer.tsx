@@ -21,7 +21,7 @@ interface PredictionAnalyzerProps {
   userId?: string;
   onFileSelected?: (file: File | null) => void;
   onAnalyzeRequested?: (file: File) => Promise<any>;
-  onSaveResult?: (result: any) => boolean;
+  onSaveResult?: (result: any) => Promise<boolean>;
   hasUser?: boolean;
   onValidationError?: () => void;
 }
@@ -88,7 +88,7 @@ export function PredictionAnalyzer({
     }
   };
 
-  const handleSaveResult = (resultData: any) => {
+  const handleSaveResult = async (resultData: any) => {
     if (onSaveResult) {
       const success = onSaveResult({
         ...resultData,
@@ -98,7 +98,7 @@ export function PredictionAnalyzer({
         analyzedAt: new Date().toISOString(),
       });
 
-      if (success) {
+      if (await success) {
         setResultSaved(true);
       }
     }

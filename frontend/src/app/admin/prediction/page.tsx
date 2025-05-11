@@ -1,6 +1,7 @@
+// src/app/admin/prediction/page.tsx
 "use client";
 
-import { useState, useEffect, SetStateAction } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import axios from "@/lib/axios";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -14,6 +15,13 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { PredictionAnalyzer } from "@/components/admin/PredictionAnalyzer";
 import { HowItWorks } from "@/components/admin/HowItWorks";
 import { ComingSoon } from "@/components/admin/ComingSoon";
@@ -29,10 +37,14 @@ export default function PrediksiPage() {
     name: string;
     dateTime: string;
     region: string;
+    phone?: string;
+    gender?: string;
   } | null>(null);
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [userName, setUserName] = useState("");
   const [userRegion, setUserRegion] = useState("");
+  const [userPhone, setUserPhone] = useState("");
+  const [userGender, setUserGender] = useState("");
   const [error, setError] = useState("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
@@ -105,17 +117,21 @@ export default function PrediksiPage() {
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
+    const token = localStorage.getItem("auth_token");
+    if (!token || !storedUser) {
+      console.log("No token or user, redirecting to login...");
+      router.push("/login");
+      return;
+    }
     if (storedUser) {
       const parsedUser = JSON.parse(storedUser);
+      if (!parsedUser.is_admin) {
+        console.log("User is not admin, redirecting...");
+        router.push("/user/dashboard");
+      }
       setCurrentUser(parsedUser);
     }
-  }, []);
-
-  // Function to generate a random user ID
-  const generateUserId = () => {
-    const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `USR-${randomPart}`;
-  };
+  }, [router]);
 
   // Function to get current date and time in a formatted string
   const getCurrentDateTime = () => {
@@ -130,42 +146,61 @@ export default function PrediksiPage() {
     });
   };
 
-  const handleUserSubmit = (e: { preventDefault: () => void }) => {
+  const handleUserSubmit = async (e: { preventDefault: () => void }) => {
     e.preventDefault();
 
     if (!userName.trim()) {
       setError("User name is required");
+      toast.error("User name is required");
       return;
     }
 
     if (!userRegion.trim()) {
       setError("Region is required");
+      toast.error("Region is required");
       return;
     }
 
-    // Update userData
-    setUserData({
-      userId: generateUserId(),
-      name: userName,
-      dateTime: getCurrentDateTime(),
-      region: userRegion,
-    });
+    try {
+      console.log("Submitting user:", {
+        userName,
+        userRegion,
+        userPhone,
+        userGender,
+      });
+      const response = await axios.post("/api/v1/users/temp", {
+        name: userName,
+        region: userRegion,
+        phone: userPhone || null,
+        gender: userGender || null,
+      });
+      console.log("User created:", response.data);
 
-    // Simpan ke backend (opsional)
-    axios
-      .post("/api/v1/users/temp", { name: userName, region: userRegion })
-      .catch((err) => {
-        console.error("Error saving user:", err);
+      setUserData({
+        userId: response.data.userId,
+        name: userName,
+        dateTime: getCurrentDateTime(),
+        region: userRegion,
+        phone: userPhone,
+        gender: userGender,
       });
 
-    // Close dialog and reset form
-    setShowUserDialog(false);
-    setUserName("");
-    setUserRegion("");
-    setError("");
+      setShowUserDialog(false);
+      setUserName("");
+      setUserRegion("");
+      setUserPhone("");
+      setUserGender("");
+      setError("");
+      toast.success("User berhasil ditambahkan!");
+    } catch (err: any) {
+      console.error("Error saving user:", err.response?.data || err);
+      const errorMsg = err.response?.data?.detail || "Gagal menyimpan user";
+      setError(errorMsg);
+      toast.error(errorMsg);
+    }
   };
 
-  const handleTabChange = (value: SetStateAction<string>) => {
+  const handleTabChange = (value: string) => {
     setActiveTab(value);
   };
 
@@ -192,6 +227,10 @@ export default function PrediksiPage() {
         fileSize: result.fileSize,
         fileType: result.fileType,
         analyzedAt: result.analyzedAt,
+        name: userData.name,
+        region: userData.region,
+        phone: userData.phone || null,
+        gender: userData.gender || null,
       });
       toast.success("Hasil prediksi berhasil disimpan");
       return true;
@@ -206,7 +245,6 @@ export default function PrediksiPage() {
 
   // Panggilan API ke /api/v1/predict
   const handleAnalyzeRequest = async (file: File) => {
-    // Validasi userData
     if (!userData) {
       toast.error("Harap masukkan data terlebih dahulu", {
         description: "Silakan tambahkan user sebelum melakukan analisis.",
@@ -236,7 +274,6 @@ export default function PrediksiPage() {
         );
       }
 
-      // Pemetaan class_name ke status
       let status: "positive" | "negative" | "error";
       const className = result.predictions.class_name.toLowerCase();
       if (className === "tuberculosis" || className === "tbc") {
@@ -247,7 +284,6 @@ export default function PrediksiPage() {
         throw new Error(`Unexpected class_name: ${className}`);
       }
 
-      // Normalisasi confidence ke dua digit (maksimum 100%)
       const confidence = Math.min(
         parseFloat(result.predictions.confidence.toFixed(2)),
         100
@@ -259,6 +295,9 @@ export default function PrediksiPage() {
         details: `Inference time: ${result.inference_time}`,
         fileName: file.name,
         date: new Date().toLocaleDateString(),
+        fileSize: file.size,
+        fileType: file.type,
+        analyzedAt: new Date().toISOString(),
       };
     } catch (err) {
       console.error("Error analyzing file:", err);
@@ -321,12 +360,34 @@ export default function PrediksiPage() {
                                 </td>
                                 <td className="py-2">{userData.dateTime}</td>
                               </tr>
-                              <tr>
+                              <tr className="border-b">
                                 <td className="py-2 text-gray-500 font-medium">
                                   Region
                                 </td>
                                 <td className="py-2">{userData.region}</td>
                               </tr>
+                              {userData.phone && (
+                                <tr className="border-b">
+                                  <td className="py-2 text-gray-500 font-medium">
+                                    Phone
+                                  </td>
+                                  <td className="py-2">{userData.phone}</td>
+                                </tr>
+                              )}
+                              {userData.gender && (
+                                <tr>
+                                  <td className="py-2 text-gray-500 font-medium">
+                                    Gender
+                                  </td>
+                                  <td className="py-2">
+                                    {userData.gender === "male"
+                                      ? "Laki-laki"
+                                      : userData.gender === "female"
+                                      ? "Perempuan"
+                                      : "Tidak Disebut"}
+                                  </td>
+                                </tr>
+                              )}
                             </tbody>
                           </table>
                         </div>
@@ -337,6 +398,8 @@ export default function PrediksiPage() {
                             onClick={() => {
                               setUserName(userData.name);
                               setUserRegion(userData.region);
+                              setUserPhone(userData.phone || "");
+                              setUserGender(userData.gender || "");
                               setShowUserDialog(true);
                             }}
                           >
@@ -387,6 +450,7 @@ export default function PrediksiPage() {
                         placeholder="Enter user name"
                         value={userName}
                         onChange={(e) => setUserName(e.target.value)}
+                        required
                       />
                     </div>
                     <div className="space-y-2">
@@ -396,7 +460,30 @@ export default function PrediksiPage() {
                         placeholder="Enter user region"
                         value={userRegion}
                         onChange={(e) => setUserRegion(e.target.value)}
+                        required
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="userPhone">Phone Number</Label>
+                      <Input
+                        id="userPhone"
+                        placeholder="Enter phone number (optional)"
+                        value={userPhone}
+                        onChange={(e) => setUserPhone(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="userGender">Gender</Label>
+                      <Select value={userGender} onValueChange={setUserGender}>
+                        <SelectTrigger id="userGender">
+                          <SelectValue placeholder="Select gender (optional)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="male">Laki-laki</SelectItem>
+                          <SelectItem value="female">Perempuan</SelectItem>
+                          <SelectItem value="other">Tidak Disebut</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                     {error && <p className="text-sm text-red-500">{error}</p>}
                   </div>
@@ -408,6 +495,8 @@ export default function PrediksiPage() {
                         setShowUserDialog(false);
                         setUserName("");
                         setUserRegion("");
+                        setUserPhone("");
+                        setUserGender("");
                         setError("");
                       }}
                     >

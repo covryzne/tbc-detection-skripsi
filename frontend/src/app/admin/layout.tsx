@@ -64,7 +64,7 @@ export default function AdminLayout({
         <SiteHeader />
         <main>{children}</main>
       </SidebarInset>
-      <Toaster />
+      <Toaster position="top-right" richColors />
     </SidebarProvider>
   );
 }

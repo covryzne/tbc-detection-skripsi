@@ -1,8 +1,8 @@
+# src/accounts/schemas.py
 import uuid
-from .models import User
-from .security import hash_password, check_password
-from pydantic import BaseModel, validator, EmailStr, Field, validator
-
+from pydantic import BaseModel, EmailStr, Field, validator
+from typing import Optional
+from .security import hash_password, check_password  # Import dari security.py
 
 class UserCreate(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
@@ -22,10 +22,6 @@ class UserCreate(BaseModel):
     def hash_password(self) -> None:
         self.password = hash_password(self.password)
 
-    def to_orm(self):
-        return User(**self.dict())
-
-
 class UserResponse(BaseModel):
     id: uuid.UUID
     full_name: str
@@ -38,3 +34,15 @@ class UserLogin(BaseModel):
 
     def check_password(self, password_in_db) -> bool:
         return check_password(self.password, password_in_db)
+
+class TempUserRequest(BaseModel):
+    name: str
+    region: str
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+
+    @validator('phone')
+    def validate_phone(cls, v):
+        if v and not v.replace('+', '').isdigit():
+            raise ValueError('Nomor HP harus berupa angka')
+        return v

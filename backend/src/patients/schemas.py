@@ -1,16 +1,14 @@
 import uuid
 from datetime import datetime
 from pydantic import BaseModel
-from typing import Optional
-
+from typing import Optional, List
 
 class PatientCreate(BaseModel):
     name: str
     age: Optional[int] = None
-    gender: Optional[str] = None  # Gender bisa nullable atau kosong
+    gender: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
-
 
 class PatientResponse(BaseModel):
     id: uuid.UUID
@@ -23,7 +21,6 @@ class PatientResponse(BaseModel):
 
     @staticmethod
     def parse(data):
-        """parses data"""
         def parse_one(data):
             return PatientResponse(**{
                 "id": data.id,
@@ -38,33 +35,50 @@ class PatientResponse(BaseModel):
             return [parse_one(item) for item in data]
         return parse_one(data)
 
-
 class PatientRecordCreate(BaseModel):
-    id: uuid.UUID = None
     date: datetime = datetime.now()
-    checkup_data: Optional[str] = None
-    condition: Optional[str] = None
-    patient_id: uuid.UUID = None
-
+    image_path: Optional[str] = None
+    result: str
+    confidence: Optional[str] = None
+    inference_time: Optional[str] = None
+    patient_id: uuid.UUID
 
 class PatientRecordResponse(BaseModel):
     id: uuid.UUID
     date: datetime
-    checkup_data: Optional[str] = None
-    condition: Optional[str] = None
+    image_path: Optional[str]
+    result: str
+    confidence: Optional[str]
+    inference_time: Optional[str]
     patient_id: uuid.UUID
 
     @staticmethod
     def parse(data):
-        """parses data"""
         def parse_one(data):
             return PatientRecordResponse(**{
                 "id": data.id,
                 "date": data.date,
-                "checkup_data": data.checkup_data,
-                "condition": data.condition,
+                "image_path": data.image_path,
+                "result": data.result,
+                "confidence": data.confidence,
+                "inference_time": data.inference_time,
                 "patient_id": data.patient_id,
             })
         if isinstance(data, list):
             return [parse_one(item) for item in data]
         return parse_one(data)
+
+class PredictionSaveRequest(BaseModel):
+    userId: str
+    status: str
+    confidence: float
+    details: str
+    date: str
+    fileName: str
+    fileSize: int
+    fileType: str
+    analyzedAt: str
+    name: Optional[str] = None
+    region: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None

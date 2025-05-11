@@ -1,4 +1,4 @@
-// login/SignInForm.tsx
+// src/app/login/SignInForm.tsx
 "use client";
 
 import { useState } from "react";
@@ -18,14 +18,20 @@ const SignInForm = () => {
     try {
       const res = await axios.post("/api/v1/token", { email, password });
       const { access_token } = res.data;
+      console.log("Access token:", access_token); // Debug
 
       const userRes = await axios.get("/api/v1/users/me", {
         headers: { Authorization: `Bearer ${access_token}` },
       });
       const user = userRes.data.user;
+      console.log("User data:", user); // Debug
 
-      document.cookie = `auth_token=${access_token}; path=/; max-age=1800`;
+      // Simpen auth_token ke localStorage
+      localStorage.setItem("auth_token", access_token);
+      // Simpen user ke localStorage
       localStorage.setItem("user", JSON.stringify(user));
+      // Opsional: Simpen ke cookie
+      document.cookie = `auth_token=${access_token}; path=/; max-age=1800`;
 
       if (user.is_admin) {
         router.push("/admin/dashboard");
@@ -34,7 +40,7 @@ const SignInForm = () => {
       }
     } catch (err: any) {
       setError("Login gagal. Periksa kembali email dan password.");
-      console.error(err);
+      console.error("Login error:", err.response?.data || err);
     }
   };
 
