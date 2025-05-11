@@ -1,3 +1,4 @@
+// components/nav-user.tsx
 "use client";
 
 import {
@@ -7,7 +8,7 @@ import {
   IconNotification,
   IconUserCircle,
 } from "@tabler/icons-react";
-
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,6 +25,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import axios from "@/lib/axios";
 
 export function NavUser({
   user,
@@ -35,6 +37,23 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      await axios.post("/api/v1/logout");
+    } catch (err) {
+      console.error("Error during logout:", err);
+    } finally {
+      // Hapus localStorage
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      // Hapus cookie
+      document.cookie = "auth_token=; path=/; max-age=0";
+      console.log("Logged out, redirecting to /");
+      router.push("/");
+    }
+  };
 
   return (
     <SidebarMenu>
@@ -64,9 +83,9 @@ export function NavUser({
             align="end"
             sideOffset={4}
           >
-            <DropdownMenuItem>
-              <IconLogout />
-              Log out
+            <DropdownMenuItem onClick={handleLogout}>
+              <IconLogout className="mr-2 h-4 w-4" />
+              <span>Log out</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

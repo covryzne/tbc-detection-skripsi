@@ -18,19 +18,20 @@ const SignInForm = () => {
     try {
       const res = await axios.post("/api/v1/token", { email, password });
       const { access_token } = res.data;
-      console.log("Access token:", access_token); // Debug
+      console.log("Access token:", access_token);
 
       const userRes = await axios.get("/api/v1/users/me", {
         headers: { Authorization: `Bearer ${access_token}` },
       });
       const user = userRes.data.user;
-      console.log("User data:", user); // Debug
+      console.log("User data:", user);
 
-      // Simpen auth_token ke localStorage
+      // Bersihin localStorage sebelum simpen token baru
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
+      // Simpen token dan user
       localStorage.setItem("auth_token", access_token);
-      // Simpen user ke localStorage
       localStorage.setItem("user", JSON.stringify(user));
-      // Opsional: Simpen ke cookie
       document.cookie = `auth_token=${access_token}; path=/; max-age=1800`;
 
       if (user.is_admin) {
@@ -39,8 +40,17 @@ const SignInForm = () => {
         router.push("/user/dashboard");
       }
     } catch (err: any) {
-      setError("Login gagal. Periksa kembali email dan password.");
+      let errorMsg = "Login gagal. Periksa kembali email dan password.";
+      if (err.response?.status === 422 && err.response?.data?.detail) {
+        errorMsg = `Login gagal: ${err.response.data.detail}`;
+      } else if (err.response?.data?.detail) {
+        errorMsg = err.response.data.detail;
+      }
+      setError(errorMsg);
       console.error("Login error:", err.response?.data || err);
+      // Hapus token kalo login gagal
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("user");
     }
   };
 
@@ -71,7 +81,7 @@ const SignInForm = () => {
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-[36px] text-gray-600 hover:text-gray-800 focus:outline-none"
+          className="absolute right-3 top-[36px] text-gray-500 hover:text-gray-700 focus:outline-none"
         >
           {showPassword ? (
             <EyeSlashIcon className="w-5 h-5" />

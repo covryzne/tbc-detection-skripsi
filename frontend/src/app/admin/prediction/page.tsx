@@ -324,12 +324,7 @@ export default function PrediksiPage() {
           <div className="px-4 lg:px-6">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">Tuberculosis Prediction</h1>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <IconDownload className="h-4 w-4 mr-1" />
-                  Export
-                </Button>
-              </div>
+              <div className="flex space-x-2"></div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-6">

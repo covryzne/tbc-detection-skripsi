@@ -40,8 +40,12 @@ export function SiteHeader() {
     } catch (err) {
       console.error("Error during logout:", err);
     } finally {
-      document.cookie = "auth_token=; path=/; max-age=0";
+      // Hapus localStorage
+      localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
+      // Hapus cookie
+      document.cookie = "auth_token=; path=/; max-age=0";
+      console.log("Logged out, redirecting to /");
       router.push("/");
     }
   };
@@ -76,7 +80,7 @@ export function SiteHeader() {
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">
-                    {user?.name || "Guest"}
+                    {user?.is_admin ? "Admin" : "User"}
                   </p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user?.email || "No email"}
