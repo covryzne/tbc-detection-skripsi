@@ -9,352 +9,277 @@ import {
   IconEdit,
   IconTrash,
   IconPlus,
-  IconX,
 } from "@tabler/icons-react";
 
-// Define TypeScript interfaces
+// Interface untuk data user di tabel
 interface User {
   id: string;
   name: string;
-  createdAt: string;
-  region: string;
   email: string;
-  status: "active" | "inactive";
+  region: string;
+  createdAt: string;
 }
 
-interface UserModalProps {
+// Interface untuk form (tambah/edit user)
+interface UserForm extends User {
+  password?: string; // Optional, cuma buat create user
+}
+
+const UserModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   user: User | null;
-  onSave: (userData: User) => void;
-}
+  onSave: (user: UserForm) => void;
+}> = ({ isOpen, onClose, user, onSave }) => {
+  const [formData, setFormData] = React.useState<UserForm>(
+    user
+      ? { ...user, password: "" }
+      : {
+          id: "",
+          name: "",
+          email: "",
+          region: "Tidak diketahui",
+          createdAt: "",
+          password: "",
+        }
+  );
 
-interface ConfirmDialogProps {
+  // Reset formData saat user berubah
+  React.useEffect(() => {
+    console.log("UserModal received user:", user); // Debug
+    setFormData(
+      user
+        ? { ...user, password: "" }
+        : {
+            id: "",
+            name: "",
+            email: "",
+            region: "Tidak diketahui",
+            createdAt: "",
+            password: "",
+          }
+    );
+  }, [user]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("Submitting formData:", formData); // Debug
+    if (!formData.id && user) {
+      console.error("FormData missing id on submit:", formData);
+      return;
+    }
+    onSave(formData);
+    onClose();
+  };
+
+  return (
+    isOpen && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4">
+            {user ? "Edit User" : "Tambah User"}
+          </h2>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Nama Lengkap
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                required
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) =>
+                  setFormData({ ...formData, email: e.target.value })
+                }
+                className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                required
+              />
+            </div>
+            {!user && (
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={formData.password || ""}
+                  onChange={(e) =>
+                    setFormData({ ...formData, password: e.target.value })
+                  }
+                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
+                  required
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 bg-gray-200 rounded-md"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-500 text-white rounded-md"
+              >
+                Simpan
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+  );
+};
+
+const ConfirmDialog: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
   title: string;
   message: string;
-}
-
-// Sample users data
-const initialUsersData: User[] = [
-  {
-    id: "USR001",
-    name: "John Doe",
-    createdAt: "2025-04-15T08:30:00",
-    region: "Jakarta",
-    email: "john.doe@example.com",
-    status: "active",
-  },
-  {
-    id: "USR002",
-    name: "Sarah Johnson",
-    createdAt: "2025-04-12T14:45:00",
-    region: "Surabaya",
-    email: "sarah.j@example.com",
-    status: "active",
-  },
-  {
-    id: "USR003",
-    name: "Ahmad Rizki",
-    createdAt: "2025-04-10T09:15:00",
-    region: "Bandung",
-    email: "ahmad.r@example.com",
-    status: "active",
-  },
-  {
-    id: "USR004",
-    name: "Maria Sanjaya",
-    createdAt: "2025-04-08T16:20:00",
-    region: "Yogyakarta",
-    email: "maria.s@example.com",
-    status: "inactive",
-  },
-  {
-    id: "USR005",
-    name: "Robert Chen",
-    createdAt: "2025-04-05T11:10:00",
-    region: "Medan",
-    email: "robert.c@example.com",
-    status: "active",
-  },
-  {
-    id: "USR006",
-    name: "Anita Wijaya",
-    createdAt: "2025-04-03T13:25:00",
-    region: "Makassar",
-    email: "anita.w@example.com",
-    status: "active",
-  },
-  {
-    id: "USR007",
-    name: "David Wong",
-    createdAt: "2025-04-01T10:40:00",
-    region: "Jakarta",
-    email: "david.w@example.com",
-    status: "inactive",
-  },
-  {
-    id: "USR008",
-    name: "Eka Putra",
-    createdAt: "2025-03-29T15:55:00",
-    region: "Bali",
-    email: "eka.p@example.com",
-    status: "active",
-  },
-];
-
-// User Modal Component
-const UserModal: React.FC<UserModalProps> = ({
-  isOpen,
-  onClose,
-  user,
-  onSave,
-}) => {
-  const [userData, setUserData] = React.useState<User>(
-    user || {
-      id: "",
-      name: "",
-      email: "",
-      region: "",
-      status: "active",
-      createdAt: "",
-    }
-  );
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    setUserData({ ...userData, [name]: value });
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Generate an ID if it's a new user
-    if (!userData.id) {
-      const newUser = {
-        ...userData,
-        id: `USR${Math.floor(1000 + Math.random() * 9000)}`,
-        createdAt: new Date().toISOString(),
-      };
-      onSave(newUser);
-    } else {
-      onSave(userData);
-    }
-    onClose();
-  };
-
-  if (!isOpen) return null;
-
+}> = ({ isOpen, onClose, onConfirm, title, message }) => {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">
-            {user ? "Edit User" : "Add New User"}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <IconX size={20} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit}>
-          {user && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                User ID
-              </label>
-              <input
-                type="text"
-                value={userData.id}
-                disabled
-                className="w-full px-3 py-2 bg-gray-100 border border-gray-300 rounded-md"
-              />
-            </div>
-          )}
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={userData.name}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={userData.email}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Region
-            </label>
-            <select
-              name="region"
-              value={userData.region}
-              onChange={handleChange}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">Select Region</option>
-              <option value="Jakarta">Jakarta</option>
-              <option value="Bandung">Bandung</option>
-              <option value="Surabaya">Surabaya</option>
-              <option value="Medan">Medan</option>
-              <option value="Makassar">Makassar</option>
-              <option value="Yogyakarta">Yogyakarta</option>
-              <option value="Bali">Bali</option>
-            </select>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={userData.status}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
-
+    isOpen && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white p-6 rounded-lg w-full max-w-md">
+          <h2 className="text-xl font-bold mb-4">{title}</h2>
+          <p className="mb-6">{message}</p>
           <div className="flex justify-end gap-2">
             <button
-              type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
+              className="px-4 py-2 bg-gray-200 rounded-md"
             >
-              Cancel
+              Batal
             </button>
             <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              onClick={() => {
+                onConfirm();
+                onClose();
+              }}
+              className="px-4 py-2 bg-red-500 text-white rounded-md"
             >
-              Save
+              Hapus
             </button>
           </div>
-        </form>
-      </div>
-    </div>
-  );
-};
-
-// Confirm Dialog Component
-const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  title,
-  message,
-}) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-sm">
-        <h3 className="text-lg font-medium mb-2">{title}</h3>
-        <p className="text-gray-500 mb-6">{message}</p>
-        <div className="flex justify-end gap-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            className="px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
-          >
-            Delete
-          </button>
         </div>
       </div>
-    </div>
+    )
   );
 };
 
 const UsersContent: React.FC = () => {
-  const [usersData, setUsersData] = React.useState<User[]>(initialUsersData);
+  const [usersData, setUsersData] = React.useState<User[]>([]);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [currentPage, setCurrentPage] = React.useState(1);
   const [isModalOpen, setIsModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<User | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = React.useState(false);
   const [userToDelete, setUserToDelete] = React.useState<User | null>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
   const itemsPerPage = 5;
 
-  // CRUD Operations
-  const deleteUser = (userId: string) => {
-    setUsersData(usersData.filter((user) => user.id !== userId));
+  // Fetch users dari backend
+  React.useEffect(() => {
+    const fetchUsers = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+        }
+        const response = await fetch("http://localhost:8000/api/v1/users/", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || "Gagal mengambil data user");
+        }
+        const data = await response.json();
+        console.log("API response:", data); // Debug response
+        setUsersData(
+          data.map((user: any) => ({
+            id: user.id,
+            name: user.full_name,
+            email: user.email,
+            region: user.region || "Tidak diketahui",
+            createdAt: user.created_at,
+          }))
+        );
+      } catch (err: any) {
+        setError("Gagal memuat data user: " + err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  // Format tanggal
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Tanggal tidak valid";
+      }
+      return date.toLocaleDateString("id-ID", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "Tanggal tidak valid";
+    }
   };
 
-  const addUser = (newUser: User) => {
-    setUsersData([...usersData, newUser]);
+  // Potong User ID sebelum '-'
+  const formatUserId = (id: string) => {
+    return id.split("-")[0];
   };
 
-  const updateUser = (userId: string, updatedData: Partial<User>) => {
-    setUsersData(
-      usersData.map((user) =>
-        user.id === userId ? { ...user, ...updatedData } : user
-      )
-    );
-  };
-
-  // Filter users based on search term
+  // Filter user
   const filteredUsers = usersData.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.region.toLowerCase().includes(searchTerm.toLowerCase())
+      !user.email.startsWith("temp_") &&
+      (user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.region.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Calculate pagination
+  // Hitung pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstItem, indexOfLastItem);
 
-  // Format date
-  const formatDate = (dateString: string | number | Date) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const handleEdit = (user: User) => {
+    console.log("Editing user:", user); // Debug
+    if (!user.id) {
+      console.error("Invalid user ID in handleEdit:", user);
+      setError("Gagal mengedit: ID user tidak valid.");
+      return;
+    }
     setEditingUser(user);
     setIsModalOpen(true);
   };
@@ -369,9 +294,15 @@ const UsersContent: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleSaveUser = (userData: User) => {
+  const handleSaveUser = (userData: UserForm) => {
+    console.log("Saving user:", userData); // Debug
+    if (editingUser && !userData.id) {
+      console.error("No userId provided for update:", userData);
+      setError("Gagal menyimpan: ID user tidak ditemukan.");
+      return;
+    }
     if (editingUser) {
-      updateUser(userData.id, userData);
+      updateUser(editingUser.id, userData); // Pakai editingUser.id
     } else {
       addUser(userData);
     }
@@ -383,6 +314,151 @@ const UsersContent: React.FC = () => {
     }
   };
 
+  const addUser = async (newUser: UserForm) => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+      }
+      if (!newUser.email.includes("@")) {
+        throw new Error("Email tidak valid.");
+      }
+      if (newUser.password && newUser.password.length < 6) {
+        throw new Error("Password harus minimal 6 karakter.");
+      }
+      const response = await fetch("http://localhost:8000/api/v1/users/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          full_name: newUser.name,
+          email: newUser.email,
+          password: newUser.password,
+          confirm_password: newUser.password,
+          is_active: true,
+          is_admin: false,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (
+          response.status === 400 &&
+          errorData.detail.includes("Email sudah digunakan")
+        ) {
+          throw new Error("Email sudah terdaftar. Gunakan email lain.");
+        }
+        throw new Error(errorData.detail || "Gagal menambah user");
+      }
+      const data = await response.json();
+      setUsersData([
+        ...usersData,
+        {
+          id: data.id,
+          name: data.full_name,
+          email: data.email,
+          region: data.region || "Tidak diketahui",
+          createdAt: data.created_at,
+        },
+      ]);
+      setError(null);
+    } catch (error: any) {
+      console.error("Add user error:", error);
+      setError(
+        error.message || "Gagal menambah user. Silakan cek data dan coba lagi."
+      );
+    }
+  };
+
+  const updateUser = async (userId: string, updatedData: UserForm) => {
+    console.log("Updating user:", { userId, updatedData }); // Debug
+    try {
+      if (!userId) {
+        throw new Error("ID user tidak valid.");
+      }
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+      }
+      if (!updatedData.email.includes("@")) {
+        throw new Error("Email tidak valid.");
+      }
+      const response = await fetch(
+        `http://localhost:8000/api/v1/users/${userId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            full_name: updatedData.name,
+            email: updatedData.email,
+            password: updatedData.password || "dummy",
+            confirm_password: updatedData.password || "dummy",
+            is_active: true,
+            is_admin: false,
+          }),
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Gagal mengupdate user");
+      }
+      const data = await response.json();
+      setUsersData(
+        usersData.map((user) =>
+          user.id === userId
+            ? {
+                ...user,
+                name: data.full_name,
+                email: data.email,
+                region: data.region || "Tidak diketahui",
+                createdAt: data.created_at,
+              }
+            : user
+        )
+      );
+      setError(null);
+    } catch (error: any) {
+      console.error("Update user error:", error);
+      setError(
+        error.message ||
+          "Gagal mengupdate user. Silakan cek data dan coba lagi."
+      );
+    }
+  };
+
+  const deleteUser = async (userId: string) => {
+    try {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+      }
+      const response = await fetch(
+        `http://localhost:8000/api/v1/users/${userId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || "Gagal menghapus user");
+      }
+      setUsersData(usersData.filter((user) => user.id !== userId));
+      setError(null);
+    } catch (error: any) {
+      console.error("Delete user error:", error);
+      setError(
+        error.message || "Gagal menghapus user. Silakan cek data dan coba lagi."
+      );
+    }
+  };
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
@@ -390,229 +466,235 @@ const UsersContent: React.FC = () => {
           <div className="px-4 lg:px-6">
             <h1 className="text-2xl font-bold mb-6">Users Management</h1>
 
-            {/* Search and Actions */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-              <div className="relative w-full md:w-64">
-                <IconSearch
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
-                  size={18}
-                />
-                <input
-                  type="text"
-                  placeholder="Search users..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            {error && (
+              <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">
+                {error}
               </div>
-              <div className="flex gap-2">
-                <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors">
-                  <IconFilter size={18} />
-                  <span>Filter</span>
-                </button>
-                <button
-                  onClick={handleAddNew}
-                  className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white transition-colors"
-                >
-                  <IconPlus size={18} />
-                  <span>Add User</span>
-                </button>
-              </div>
-            </div>
+            )}
 
-            {/* Users Table */}
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      User ID
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Full Name
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Email
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Created At
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Region
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {user.id}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.name}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.email}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(user.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {user.region}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <div className="flex space-x-2">
-                          <button
-                            className="text-blue-500 hover:text-blue-700"
-                            onClick={() => handleEdit(user)}
-                          >
-                            <IconEdit size={18} />
-                          </button>
-                          <button
-                            className="text-red-500 hover:text-red-700"
-                            onClick={() => handleDelete(user)}
-                          >
-                            <IconTrash size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex justify-between items-center mt-6">
-              <div className="text-sm text-gray-500">
-                Showing {indexOfFirstItem + 1} to{" "}
-                {Math.min(indexOfLastItem, filteredUsers.length)} of{" "}
-                {filteredUsers.length} users
-              </div>
-              <div className="flex space-x-2">
-                <button
-                  className="p-2 rounded-md border border-gray-300 disabled:opacity-50"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                >
-                  <IconChevronLeft size={18} />
-                </button>
-                {totalPages <= 5 ? (
-                  Array.from({ length: totalPages }, (_, i) => (
+            {loading ? (
+              <div className="text-center py-10">Memuat...</div>
+            ) : (
+              <>
+                {/* Search dan Actions */}
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                  <div className="relative w-full md:w-64">
+                    <IconSearch
+                      className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                      size={18}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Cari user..."
+                      className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors">
+                      <IconFilter size={18} />
+                      <span>Filter</span>
+                    </button>
                     <button
-                      key={i + 1}
-                      className={`w-10 h-10 rounded-md ${
-                        currentPage === i + 1
-                          ? "bg-blue-500 text-white"
-                          : "bg-white text-gray-700 border border-gray-300"
-                      }`}
-                      onClick={() => setCurrentPage(i + 1)}
+                      onClick={handleAddNew}
+                      className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white transition-colors"
                     >
-                      {i + 1}
+                      <IconPlus size={18} />
+                      <span>Tambah User</span>
                     </button>
-                  ))
-                ) : (
-                  <>
-                    {currentPage > 2 && (
-                      <button
-                        className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
-                        onClick={() => setCurrentPage(1)}
-                      >
-                        1
-                      </button>
-                    )}
+                  </div>
+                </div>
 
-                    {currentPage > 3 && (
-                      <span className="flex items-center justify-center w-10 h-10">
-                        ...
-                      </span>
-                    )}
+                {/* Tabel User */}
+                <div className="overflow-x-auto rounded-lg border border-gray-200">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          User ID
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Nama Lengkap
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Email
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Dibuat Pada
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Wilayah
+                        </th>
+                        <th
+                          scope="col"
+                          className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                        >
+                          Aksi
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {currentUsers.map((user) => (
+                        <tr key={user.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {formatUserId(user.id)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {user.name}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {user.email}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(user.createdAt)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {user.region}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <div className="flex space-x-2">
+                              <button
+                                className="text-blue-500 hover:text-blue-700"
+                                onClick={() => handleEdit(user)}
+                              >
+                                <IconEdit size={18} />
+                              </button>
+                              <button
+                                className="text-red-500 hover:text-red-700"
+                                onClick={() => handleDelete(user)}
+                              >
+                                <IconTrash size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
 
-                    {currentPage > 1 && (
-                      <button
-                        className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                      >
-                        {currentPage - 1}
-                      </button>
-                    )}
-
-                    <button className="w-10 h-10 rounded-md bg-blue-500 text-white">
-                      {currentPage}
+                {/* Pagination */}
+                <div className="flex justify-between items-center mt-6">
+                  <div className="text-sm text-gray-500">
+                    Menampilkan {indexOfFirstItem + 1} sampai{" "}
+                    {Math.min(indexOfLastItem, filteredUsers.length)} dari{" "}
+                    {filteredUsers.length} user
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      className="p-2 rounded-md border border-gray-300 disabled:opacity-50"
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                    >
+                      <IconChevronLeft size={18} />
                     </button>
-
-                    {currentPage < totalPages && (
-                      <button
-                        className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                      >
-                        {currentPage + 1}
-                      </button>
+                    {totalPages <= 5 ? (
+                      Array.from({ length: totalPages }, (_, i) => (
+                        <button
+                          key={i + 1}
+                          className={`w-10 h-10 rounded-md ${
+                            currentPage === i + 1
+                              ? "bg-blue-500 text-white"
+                              : "bg-white text-gray-700 border border-gray-300"
+                          }`}
+                          onClick={() => setCurrentPage(i + 1)}
+                        >
+                          {i + 1}
+                        </button>
+                      ))
+                    ) : (
+                      <>
+                        {currentPage > 2 && (
+                          <button
+                            className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
+                            onClick={() => setCurrentPage(1)}
+                          >
+                            1
+                          </button>
+                        )}
+                        {currentPage > 3 && (
+                          <span className="flex items-center justify-center w-10 h-10">
+                            ...
+                          </span>
+                        )}
+                        {currentPage > 1 && (
+                          <button
+                            className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                          >
+                            {currentPage - 1}
+                          </button>
+                        )}
+                        <button className="w-10 h-10 rounded-md bg-blue-500 text-white">
+                          {currentPage}
+                        </button>
+                        {currentPage < totalPages && (
+                          <button
+                            className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                          >
+                            {currentPage + 1}
+                          </button>
+                        )}
+                        {currentPage < totalPages - 2 && (
+                          <span className="flex items-center justify-center w-10 h-10">
+                            ...
+                          </span>
+                        )}
+                        {currentPage < totalPages - 1 && (
+                          <button
+                            className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
+                            onClick={() => setCurrentPage(totalPages)}
+                          >
+                            {totalPages}
+                          </button>
+                        )}
+                      </>
                     )}
+                    <button
+                      className="p-2 rounded-md border border-gray-300 disabled:opacity-50"
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                    >
+                      <IconChevronRight size={18} />
+                    </button>
+                  </div>
+                </div>
 
-                    {currentPage < totalPages - 2 && (
-                      <span className="flex items-center justify-center w-10 h-10">
-                        ...
-                      </span>
-                    )}
+                {/* User Modal */}
+                <UserModal
+                  isOpen={isModalOpen}
+                  onClose={() => setIsModalOpen(false)}
+                  user={editingUser}
+                  onSave={handleSaveUser}
+                />
 
-                    {currentPage < totalPages - 1 && (
-                      <button
-                        className="w-10 h-10 rounded-md bg-white text-gray-700 border border-gray-300"
-                        onClick={() => setCurrentPage(totalPages)}
-                      >
-                        {totalPages}
-                      </button>
-                    )}
-                  </>
-                )}
-                <button
-                  className="p-2 rounded-md border border-gray-300 disabled:opacity-50"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                >
-                  <IconChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-
-            {/* User Modal */}
-            <UserModal
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              user={editingUser}
-              onSave={handleSaveUser}
-            />
-
-            {/* Confirm Delete Dialog */}
-            <ConfirmDialog
-              isOpen={isConfirmOpen}
-              onClose={() => setIsConfirmOpen(false)}
-              onConfirm={confirmDelete}
-              title="Delete User"
-              message={`Are you sure you want to delete ${userToDelete?.name}? This action cannot be undone.`}
-            />
+                {/* Confirm Delete Dialog */}
+                <ConfirmDialog
+                  isOpen={isConfirmOpen}
+                  onClose={() => setIsConfirmOpen(false)}
+                  onConfirm={confirmDelete}
+                  title="Hapus User"
+                  message={`Apakah Anda yakin ingin menghapus ${userToDelete?.name}? Aksi ini tidak dapat dibatalkan.`}
+                />
+              </>
+            )}
           </div>
         </div>
       </div>

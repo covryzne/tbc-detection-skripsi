@@ -31,8 +31,8 @@ async def create_temp_user_and_patient(
         "id": str(uuid.uuid4()),
         "full_name": name,
         "email": f"temp_{user_id}@example.com",
-        "password": "temp_password",
-        "is_active": True,
+        "password": hash_password("temp_password"),
+        "is_active": False,  # Temp user inactive
         "is_admin": False
     }
     query = User.__table__.insert().values(**temp_user).returning(User.__table__)
