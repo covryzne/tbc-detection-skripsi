@@ -1,4 +1,3 @@
-# src/accounts/router.py
 import uuid
 import json
 import logging
@@ -10,7 +9,7 @@ from .models import User
 from src.database import database
 from src.patients.models import Patient
 from .schemas import UserCreate, UserResponse, UserLogin, TempUserRequest
-from .security import hash_password  # Tambah import
+from .security import hash_password
 
 router = APIRouter()
 
@@ -38,7 +37,7 @@ async def create_temp_user(request: TempUserRequest, Authorize: AuthJWT = Depend
             "id": str(uuid.uuid4()),
             "full_name": request.name,
             "email": f"temp_{uuid.uuid4()}@example.com",
-            "password": hash_password("temp_password"),  # Pakai hash_password dari security.py
+            "password": hash_password("temp_password"),
             "is_active": True,
             "is_admin": False
         }
@@ -51,7 +50,8 @@ async def create_temp_user(request: TempUserRequest, Authorize: AuthJWT = Depend
             "name": request.name,
             "address": request.region,
             "phone": request.phone,
-            "gender": request.gender
+            "gender": request.gender,
+            "age": request.age
         }
         query = Patient.__table__.insert().values(**patient_data).returning(Patient.__table__)
         await database.fetch_one(query)

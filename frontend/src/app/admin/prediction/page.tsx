@@ -1,4 +1,3 @@
-// src/app/admin/prediction/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -39,12 +38,14 @@ export default function PrediksiPage() {
     region: string;
     phone?: string;
     gender?: string;
+    age?: number;
   } | null>(null);
   const [showUserDialog, setShowUserDialog] = useState(false);
   const [userName, setUserName] = useState("");
   const [userRegion, setUserRegion] = useState("");
   const [userPhone, setUserPhone] = useState("");
   const [userGender, setUserGender] = useState("");
+  const [userAge, setUserAge] = useState("");
   const [error, setError] = useState("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
@@ -161,18 +162,27 @@ export default function PrediksiPage() {
       return;
     }
 
+    const ageNumber = parseInt(userAge);
+    if (userAge && (isNaN(ageNumber) || ageNumber < 0 || ageNumber > 150)) {
+      setError("Umur harus antara 0 dan 150");
+      toast.error("Umur harus antara 0 dan 150");
+      return;
+    }
+
     try {
       console.log("Submitting user:", {
         userName,
         userRegion,
         userPhone,
         userGender,
+        userAge: ageNumber || null,
       });
       const response = await axios.post("/api/v1/users/temp", {
         name: userName,
         region: userRegion,
         phone: userPhone || null,
         gender: userGender || null,
+        age: ageNumber || null,
       });
       console.log("User created:", response.data);
 
@@ -183,6 +193,7 @@ export default function PrediksiPage() {
         region: userRegion,
         phone: userPhone,
         gender: userGender,
+        age: ageNumber || undefined,
       });
 
       setShowUserDialog(false);
@@ -190,6 +201,7 @@ export default function PrediksiPage() {
       setUserRegion("");
       setUserPhone("");
       setUserGender("");
+      setUserAge("");
       setError("");
       toast.success("User berhasil ditambahkan!");
     } catch (err: any) {
@@ -231,6 +243,7 @@ export default function PrediksiPage() {
         region: userData.region,
         phone: userData.phone || null,
         gender: userData.gender || null,
+        age: userData.age || null,
       });
       toast.success("Hasil prediksi berhasil disimpan");
       return true;
@@ -370,7 +383,7 @@ export default function PrediksiPage() {
                                 </tr>
                               )}
                               {userData.gender && (
-                                <tr>
+                                <tr className="border-b">
                                   <td className="py-2 text-gray-500 font-medium">
                                     Gender
                                   </td>
@@ -381,6 +394,14 @@ export default function PrediksiPage() {
                                       ? "Perempuan"
                                       : "Tidak Disebut"}
                                   </td>
+                                </tr>
+                              )}
+                              {userData.age && (
+                                <tr className="border-b">
+                                  <td className="py-2 text-gray-500 font-medium">
+                                    Age
+                                  </td>
+                                  <td className="py-2">{userData.age}</td>
                                 </tr>
                               )}
                             </tbody>
@@ -395,6 +416,7 @@ export default function PrediksiPage() {
                               setUserRegion(userData.region);
                               setUserPhone(userData.phone || "");
                               setUserGender(userData.gender || "");
+                              setUserAge(userData.age?.toString() || "");
                               setShowUserDialog(true);
                             }}
                           >
@@ -467,18 +489,33 @@ export default function PrediksiPage() {
                         onChange={(e) => setUserPhone(e.target.value)}
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="userGender">Gender</Label>
-                      <Select value={userGender} onValueChange={setUserGender}>
-                        <SelectTrigger id="userGender">
-                          <SelectValue placeholder="Select gender (optional)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="male">Laki-laki</SelectItem>
-                          <SelectItem value="female">Perempuan</SelectItem>
-                          <SelectItem value="other">Tidak Disebut</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="userGender">Gender</Label>
+                        <Select
+                          value={userGender}
+                          onValueChange={setUserGender}
+                        >
+                          <SelectTrigger id="userGender">
+                            <SelectValue placeholder="Select gender (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="male">Laki-laki</SelectItem>
+                            <SelectItem value="female">Perempuan</SelectItem>
+                            <SelectItem value="other">Tidak Disebut</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="userAge">Age</Label>
+                        <Input
+                          id="userAge"
+                          type="number"
+                          placeholder="Enter age (optional)"
+                          value={userAge}
+                          onChange={(e) => setUserAge(e.target.value)}
+                        />
+                      </div>
                     </div>
                     {error && <p className="text-sm text-red-500">{error}</p>}
                   </div>
@@ -492,6 +529,7 @@ export default function PrediksiPage() {
                         setUserRegion("");
                         setUserPhone("");
                         setUserGender("");
+                        setUserAge("");
                         setError("");
                       }}
                     >
@@ -516,9 +554,6 @@ export default function PrediksiPage() {
                   <TabsList className="mb-4">
                     <TabsTrigger value="x-ray">X-Ray Analysis</TabsTrigger>
                     <TabsTrigger value="sputum">Sputum Sample</TabsTrigger>
-                    <TabsTrigger value="symptoms">
-                      Symptoms Analysis
-                    </TabsTrigger>
                   </TabsList>
                 </div>
 
@@ -547,24 +582,6 @@ export default function PrediksiPage() {
                     title="Sputum Sample Analysis"
                     description="Upload sputum sample microscopy images for TB detection"
                     message="The sputum sample analysis module is under development and will be available in the next update."
-                  />
-                  <HowItWorks
-                    title="How Sputum Analysis Will Work"
-                    description="Understanding the sputum-based TB detection process"
-                    steps={sputumSteps}
-                  />
-                </TabsContent>
-
-                <TabsContent value="symptoms" className="space-y-4">
-                  <ComingSoon
-                    title="Symptoms Analysis"
-                    description="Check TB risk based on reported symptoms"
-                    message="The symptoms analysis module is under development and will be available in the next update."
-                  />
-                  <HowItWorks
-                    title="How Symptoms Analysis Will Work"
-                    description="Understanding the symptoms-based TB risk assessment"
-                    steps={symptomsSteps}
                   />
                 </TabsContent>
               </Tabs>

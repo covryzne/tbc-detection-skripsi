@@ -12,10 +12,6 @@ import {
   IconX,
 } from "@tabler/icons-react";
 
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-
 // Define TypeScript interfaces
 interface User {
   id: string;

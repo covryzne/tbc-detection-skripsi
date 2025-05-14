@@ -1,8 +1,5 @@
 "use client";
 
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import {
   Card,
   CardContent,
@@ -26,20 +23,46 @@ import {
 } from "recharts";
 import { ChevronRight } from "lucide-react";
 
-// Sample data for demonstration purposes - updated for metrics display
+// Sample data for performance metrics (AUC-ROC removed from BarChart)
 const performanceData = [
-  { name: "Accuracy", value: 0.954 },
-  { name: "Precision", value: 0.894 },
-  { name: "Recall", value: 0.921 },
-  { name: "F1 Score", value: 0.907 },
-  { name: "AUC-ROC", value: 0.962 }, // Added AUC-ROC as requested
+  { name: "Accuracy", value: 0.97 },
+  { name: "Precision", value: 0.97 },
+  { name: "Recall", value: 0.97 },
+  { name: "F1 Score", value: 0.97 },
 ];
 
+// Adjusted ROC Curve data (based on your image, AUC ~0.966)
+const rocData = [
+  { fpr: 0.0, tpr: 0.0 },
+  { fpr: 0.01, tpr: 0.45 },
+  { fpr: 0.02, tpr: 0.7 },
+  { fpr: 0.03, tpr: 0.82 },
+  { fpr: 0.05, tpr: 0.88 },
+  { fpr: 0.08, tpr: 0.92 },
+  { fpr: 0.1, tpr: 0.94 },
+  { fpr: 0.15, tpr: 0.96 },
+  { fpr: 0.2, tpr: 0.97 },
+  { fpr: 0.3, tpr: 0.98 },
+  { fpr: 0.5, tpr: 0.99 },
+  { fpr: 0.7, tpr: 0.995 },
+  { fpr: 1.0, tpr: 1.0 },
+];
+
+// Baseline for ROC Curve (diagonal line, AUC=0.5)
+const baselineData = [
+  { fpr: 0.0, tpr: 0.0 },
+  { fpr: 1.0, tpr: 1.0 },
+];
+
+// AUC value from your image
+const aucValue = 0.96605779220599;
+
+// Confusion Matrix data
 const confusionMatrixData = {
-  truePositive: 152,
-  falsePositive: 18,
-  trueNegative: 142,
-  falseNegative: 13,
+  truePositive: 476,
+  falsePositive: 4,
+  trueNegative: 451,
+  falseNegative: 28,
 };
 
 const pieData = [
@@ -67,7 +90,7 @@ const pieData = [
 
 const COLORS = ["#60a5fa", "#f87171", "#4ade80", "#fbbf24"];
 
-// DenseNet architecture layers for step-by-step visualization
+// DenseNet architecture layers
 const densenetLayers = [
   {
     name: "Input",
@@ -169,6 +192,7 @@ export default function MetricsPage() {
               </TabsList>
 
               <TabsContent value="performance" className="space-y-4">
+                {/* Bar Chart for Accuracy, Precision, Recall, F1 Score */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Performance Metrics</CardTitle>
@@ -181,12 +205,7 @@ export default function MetricsPage() {
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
                           data={performanceData}
-                          margin={{
-                            top: 5,
-                            right: 30,
-                            left: 20,
-                            bottom: 5,
-                          }}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="name" />
@@ -213,33 +232,69 @@ export default function MetricsPage() {
                   </CardContent>
                 </Card>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                  <MetricCard
-                    title="Accuracy"
-                    value="95.4%"
-                    description="Overall classification accuracy"
-                  />
-                  <MetricCard
-                    title="Precision"
-                    value="89.4%"
-                    description="True positives among predicted positives"
-                  />
-                  <MetricCard
-                    title="Recall"
-                    value="92.1%"
-                    description="True positives detected among all actual positives"
-                  />
-                  <MetricCard
-                    title="F1 Score"
-                    value="90.7%"
-                    description="Harmonic mean of precision and recall"
-                  />
-                  <MetricCard
-                    title="AUC-ROC"
-                    value="96.2%"
-                    description="Area under the ROC curve"
-                  />
-                </div>
+                {/* ROC Curve for AUC-ROC */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>AUC-ROC Curve</CardTitle>
+                    <CardDescription>
+                      Receiver Operating Characteristic (ROC) curve with AUC ={" "}
+                      {aucValue.toFixed(3)}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="fpr"
+                            label={{
+                              value: "False Positive Rate",
+                              position: "insideBottom",
+                              offset: -5,
+                            }}
+                          />
+                          <YAxis
+                            dataKey="tpr"
+                            label={{
+                              value: "True Positive Rate",
+                              angle: -90,
+                              position: "insideLeft",
+                              offset: 10,
+                            }}
+                          />
+                          <Tooltip
+                            formatter={(value, name) =>
+                              name === "tpr"
+                                ? `TPR: ${Number(value).toFixed(3)}`
+                                : `FPR: ${Number(value).toFixed(3)}`
+                            }
+                          />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            data={rocData}
+                            dataKey="tpr"
+                            stroke="#3b82f6"
+                            name="ROC Curve"
+                            dot={false}
+                          />
+                          <Line
+                            type="linear"
+                            data={baselineData}
+                            dataKey="tpr"
+                            stroke="#8884d8"
+                            strokeDasharray="5 5"
+                            name="Baseline (AUC=0.5)"
+                            dot={false}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
               </TabsContent>
 
               <TabsContent value="confusion" className="space-y-4">
@@ -299,25 +354,17 @@ export default function MetricsPage() {
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {/* Improved pie chart with adjusted height and size */}
                       <div className="h-80">
-                        {" "}
-                        {/* Increased height from h-64 to h-80 */}
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart
-                            margin={{
-                              top: 0,
-                              right: 0,
-                              bottom: 0,
-                              left: 0,
-                            }}
+                            margin={{ top: 0, right: 0, bottom: 0, left: 0 }}
                           >
                             <Pie
                               data={pieData}
                               cx="50%"
                               cy="50%"
                               labelLine={false}
-                              outerRadius={90} // Adjusted size
+                              outerRadius={90}
                               fill="#8884d8"
                               dataKey="value"
                               label={({ name, percent }) =>
@@ -345,9 +392,7 @@ export default function MetricsPage() {
                 </div>
               </TabsContent>
 
-              {/* Updated Architecture Tab with Layer Counting Explanation */}
               <TabsContent value="architecture" className="space-y-4">
-                {/* First card with overview */}
                 <Card>
                   <CardHeader>
                     <CardTitle>DenseNet-121 Architecture</CardTitle>
@@ -433,7 +478,6 @@ export default function MetricsPage() {
                   </CardContent>
                 </Card>
 
-                {/* Step-by-Step Visualization Card */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Layer Structure Visualization</CardTitle>
@@ -491,7 +535,6 @@ export default function MetricsPage() {
                   </CardContent>
                 </Card>
 
-                {/* Dense Block Detail with improved explanation */}
                 <Card>
                   <CardHeader>
                     <CardTitle>Dense Block Structure</CardTitle>
@@ -651,7 +694,7 @@ export default function MetricsPage() {
                     </div>
                   </CardContent>
                 </Card>
-                {/* New card for explaining the 121 layers */}
+
                 <Card>
                   <CardHeader>
                     <CardTitle>

@@ -1,8 +1,7 @@
-# src/accounts/schemas.py
 import uuid
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
-from .security import hash_password, check_password  # Import dari security.py
+from .security import hash_password, check_password
 
 class UserCreate(BaseModel):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
@@ -40,9 +39,16 @@ class TempUserRequest(BaseModel):
     region: str
     phone: Optional[str] = None
     gender: Optional[str] = None
+    age: Optional[int] = None
 
     @validator('phone')
     def validate_phone(cls, v):
         if v and not v.replace('+', '').isdigit():
             raise ValueError('Nomor HP harus berupa angka')
+        return v
+
+    @validator('age')
+    def validate_age(cls, v):
+        if v is not None and (v < 0 or v > 150):
+            raise ValueError('Umur harus antara 0 dan 150')
         return v
