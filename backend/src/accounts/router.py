@@ -284,7 +284,11 @@ async def update_profile_details(profile: UserProfileUpdate, Authorize: AuthJWT 
         if not existing_user:
             raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
-        # Update atau insert profile
+        # Cek apakah profile ada
+        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
+        existing_profile = await database.fetch_one(query)
+
+        # Siapkan data update
         update_data = {}
         if profile.phone is not None:
             update_data["phone"] = profile.phone
@@ -292,17 +296,23 @@ async def update_profile_details(profile: UserProfileUpdate, Authorize: AuthJWT 
             update_data["address"] = profile.address
 
         if update_data:
-            query = (
-                UserProfile.__table__.insert()
-                .values(user_id=user_id, **update_data)
-                .on_conflict_do_update(
-                    index_elements=["user_id"],
-                    set_=update_data,
-                    where=(UserProfile.__table__.c.user_id == user_id)
+            if existing_profile:
+                # Update profile yang ada
+                query = (
+                    UserProfile.__table__.update()
+                    .where(UserProfile.user_id == user_id)
+                    .values(**update_data)
                 )
-            )
-            await database.execute(query)
-            logger.debug(f"Updated profile details for user: {user_id}")
+                await database.execute(query)
+                logger.debug(f"Updated existing profile for user: {user_id}")
+            else:
+                # Insert profile baru
+                query = (
+                    UserProfile.__table__.insert()
+                    .values(user_id=user_id, **update_data)
+                )
+                await database.execute(query)
+                logger.debug(f"Created new profile for user: {user_id}")
 
         # Ambil data terbaru
         query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)

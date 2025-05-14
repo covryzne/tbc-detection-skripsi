@@ -360,9 +360,6 @@ export default function ProfilePage() {
                               <option value="Administrator">
                                 Administrator
                               </option>
-                              <option value="System Admin">System Admin</option>
-                              <option value="Super Admin">Super Admin</option>
-                              <option value="IT Support">IT Support</option>
                             </select>
                           ) : (
                             <div className="flex items-center">
