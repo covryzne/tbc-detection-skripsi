@@ -26,8 +26,8 @@ class UserResponse(BaseModel):
     full_name: str
     email: EmailStr
     is_admin: bool
-    created_at: str  # Tambah untuk Dibuat Pada
-    region: str  # Dari patients.address
+    created_at: str
+    region: str
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -56,11 +56,11 @@ class TempUserRequest(BaseModel):
         return v
 
 class UserProfileUpdate(BaseModel):
-    region: Optional[str] = None
-    age: Optional[int] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
 
-    @validator('age')
-    def validate_age(cls, v):
-        if v is not None and (v < 0 or v > 150):
-            raise ValueError('Umur harus antara 0 dan 150')
+    @validator('phone')
+    def validate_phone(cls, v):
+        if v and not v.replace('+', '').isdigit():
+            raise ValueError('Nomor HP harus berupa angka')
         return v

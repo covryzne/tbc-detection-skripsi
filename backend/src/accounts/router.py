@@ -8,7 +8,7 @@ from typing import List
 from sqlalchemy import join, not_
 from datetime import datetime
 
-from .models import User
+from .models import User, UserProfile
 from src.database import database
 from src.patients.models import Patient
 from .schemas import UserCreate, UserResponse, UserLogin, TempUserRequest, UserProfileUpdate
@@ -76,14 +76,16 @@ async def login(user: UserLogin, Authorize: AuthJWT = Depends(), response: Respo
     query = User.__table__.select().where(User.email == user.email)
     existing_user = await database.fetch_one(query)
     if not existing_user:
-        raise HTTPException(status_code=400, detail="Email does not exist.")
+        raise HTTPException(status_code=400, detail="Email tidak ditemukan.")
     if not user.check_password(existing_user.password):
-        raise HTTPException(status_code=400, detail="Password mismatch.")
+        raise HTTPException(status_code=400, detail="Password salah.")
 
     data = {
         "id": str(existing_user.id),
+        "full_name": existing_user.full_name,  # Tambah full_name
         "email": existing_user.email,
         "is_admin": existing_user.is_admin,
+        "created_at": existing_user.created_at.isoformat()  # Tambah created_at
     }
     access_token = Authorize.create_access_token(subject=json.dumps(data))
 
@@ -248,12 +250,32 @@ async def delete_user(user_id: str, Authorize: AuthJWT = Depends()):
         logger.error(f"Error deleting user: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Terjadi kesalahan saat menghapus user: {str(e)}")
 
-@router.patch("/users/me/profile")
-async def update_profile(profile: UserProfileUpdate, Authorize: AuthJWT = Depends()):
+@router.get("/users/me/profile-details")
+async def get_profile_details(Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
     user_id = current_user["id"]
-    logger.debug(f"Updating profile for user: {user_id}")
+    logger.debug(f"Fetching profile details for user: {user_id}")
+
+    try:
+        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
+        profile = await database.fetch_one(query)
+        if not profile:
+            return {"phone": None, "address": None}
+        return {
+            "phone": profile["phone"],
+            "address": profile["address"]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching profile details: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
+
+@router.patch("/users/me/profile-details")
+async def update_profile_details(profile: UserProfileUpdate, Authorize: AuthJWT = Depends()):
+    Authorize.jwt_required()
+    current_user = json.loads(Authorize.get_jwt_subject())
+    user_id = current_user["id"]
+    logger.debug(f"Updating profile details for user: {user_id}")
 
     try:
         # Cek apakah user ada
@@ -262,45 +284,36 @@ async def update_profile(profile: UserProfileUpdate, Authorize: AuthJWT = Depend
         if not existing_user:
             raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
-        # Cek apakah patient ada, kalau belum bikin
-        query = Patient.__table__.select().where(Patient.user_id == user_id)
-        patient = await database.fetch_one(query)
-        if not patient:
-            patient_data = {
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "name": existing_user["full_name"],
-                "address": "Tidak diketahui"
-            }
-            query = Patient.__table__.insert().values(**patient_data).returning(Patient.__table__)
-            patient = await database.fetch_one(query)
-            logger.debug(f"Created patient: {patient['id']} for user: {user_id}")
-
-        # Update patient
+        # Update atau insert profile
         update_data = {}
-        if profile.region is not None:
-            update_data["address"] = profile.region
-        if profile.age is not None:
-            update_data["age"] = profile.age
+        if profile.phone is not None:
+            update_data["phone"] = profile.phone
+        if profile.address is not None:
+            update_data["address"] = profile.address
 
         if update_data:
-            query = Patient.__table__.update().where(Patient.user_id == user_id).values(**update_data)
+            query = (
+                UserProfile.__table__.insert()
+                .values(user_id=user_id, **update_data)
+                .on_conflict_do_update(
+                    index_elements=["user_id"],
+                    set_=update_data,
+                    where=(UserProfile.__table__.c.user_id == user_id)
+                )
+            )
             await database.execute(query)
-            logger.debug(f"Updated patient profile for user: {user_id}")
+            logger.debug(f"Updated profile details for user: {user_id}")
 
         # Ambil data terbaru
-        query = Patient.__table__.select().where(Patient.user_id == user_id)
-        updated_patient = await database.fetch_one(query)
-
+        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
+        updated_profile = await database.fetch_one(query)
         return {
-            "message": "Profile updated successfully",
-            "region": updated_patient["address"] or "Tidak diketahui",
-            "age": updated_patient["age"]
+            "message": "Profile details updated successfully",
+            "phone": updated_profile["phone"] if updated_profile else None,
+            "address": updated_profile["address"] if updated_profile else None
         }
-    except HTTPException as http_exc:
-        raise http_exc
     except Exception as e:
-        logger.error(f"Error updating profile: {str(e)}", exc_info=True)
+        logger.error(f"Error updating profile details: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
 
 @router.post("/logout")

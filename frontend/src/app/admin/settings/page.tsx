@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   User,
   Mail,
@@ -10,109 +10,168 @@ import {
   Save,
   X,
   Calendar,
-  Clock,
-  Shield,
   AlertCircle,
 } from "lucide-react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-  CardFooter,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import axios from "@/lib/axios";
+
+interface UserData {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  phone: string;
+  address: string;
+  joinDate: string;
+}
 
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
-  const [userData, setUserData] = useState({
-    name: "Hendra Wijaya",
-    email: "hendra.wijaya@hospital.co.id",
-    role: "Administrator",
-    phone: "+62 812-3456-7890",
-    address: "Jl. Sudirman No. 123, Jakarta Pusat",
-    bio: "System administrator with 6 years of experience in healthcare IT. Responsible for managing the TB detection system and user access control.",
-    joinDate: "2022-03-15",
+  const [isLoading, setIsLoading] = useState(true);
+  const [userData, setUserData] = useState<UserData>({
+    id: "",
+    name: "",
+    email: "",
+    role: "",
+    phone: "",
+    address: "",
+    joinDate: "",
   });
+  const [tempUserData, setTempUserData] = useState<UserData>({ ...userData });
+  const [error, setError] = useState<string | null>(null);
 
-  const [tempUserData, setTempUserData] = useState({ ...userData });
+  useEffect(() => {
+    async function fetchUserAndProfile() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("auth_token");
+        console.log("Token from localStorage:", token);
+        console.log("Cookies:", document.cookie);
+        const userResponse = await axios.get("/api/v1/users/me");
+        console.log("User response:", userResponse.data);
+        const user = userResponse.data;
 
-  const handleInputChange = (e: { target: { name: any; value: any } }) => {
+        const profileResponse = await axios.get(
+          "/api/v1/users/me/profile-details"
+        );
+        console.log("Profile response:", profileResponse.data);
+        const profile = profileResponse.data;
+
+        const newUserData = {
+          id: user.user.id || "Unknown",
+          name: user.user.full_name || "Unknown",
+          email: user.user.email || "Unknown",
+          role: user.user.is_admin ? "Administrator" : "User",
+          phone: profile.phone || "",
+          address: profile.address || "",
+          joinDate: user.user.created_at?.split("T")[0] || "Unknown",
+        };
+        setUserData(newUserData);
+        setTempUserData(newUserData);
+      } catch (error) {
+        if (
+          typeof error === "object" &&
+          error !== null &&
+          "response" in error
+        ) {
+          // @ts-ignore
+          console.error(
+            "Error fetching user/profile:",
+            // @ts-ignore
+            error.response?.data || error
+          );
+          // @ts-ignore
+          setError(
+            typeof error.response === "object" &&
+              error.response !== null &&
+              "data" in error.response &&
+              typeof (error.response as any).data === "object" &&
+              (error.response as any).data !== null &&
+              "detail" in (error.response as any).data
+              ? (error.response as any).data.detail
+              : "Failed to load profile data"
+          );
+        } else {
+          console.error("Error fetching user/profile:", error);
+          setError("Failed to load profile data");
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchUserAndProfile();
+  }, []);
+
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setTempUserData({
       ...tempUserData,
-      [name]: value,
+      [name as keyof UserData]: value,
     });
   };
 
   const handleEditToggle = () => {
     if (isEditing) {
-      // Cancel editing
       setTempUserData({ ...userData });
     }
     setIsEditing(!isEditing);
   };
 
-  const handleSave = () => {
-    setUserData({ ...tempUserData });
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      const response = await axios.patch("/api/v1/users/me/profile-details", {
+        phone: tempUserData.phone,
+        address: tempUserData.address,
+      });
+      console.log("Save response:", response.data);
+      setUserData({ ...tempUserData });
+      setIsEditing(false);
+    } catch (error) {
+      if (error && typeof error === "object" && "response" in error) {
+        // @ts-ignore
+        console.error("Error saving profile:", error.response?.data || error);
+        // @ts-ignore
+        let detail = "Unknown error";
+        if (
+          error &&
+          typeof error === "object" &&
+          "response" in error &&
+          error.response &&
+          typeof error.response === "object" &&
+          "data" in error.response &&
+          error.response.data &&
+          typeof error.response.data === "object" &&
+          "detail" in error.response.data
+        ) {
+          // @ts-ignore
+          detail = error.response.data.detail;
+        }
+        alert(`Error saving profile: ${detail}`);
+      } else {
+        console.error("Error saving profile:", error);
+        alert("Error saving profile: Unknown error");
+      }
+    }
   };
 
-  const activityLog = [
-    {
-      action: "Login",
-      timestamp: "2025-05-05 08:23:15",
-      details: "Successful login from 103.xx.xx.xx",
-    },
-    {
-      action: "User Management",
-      timestamp: "2025-05-05 09:17:32",
-      details: "Added new user account: dr.sarah@hospital.co.id",
-    },
-    {
-      action: "System Update",
-      timestamp: "2025-05-04 14:52:08",
-      details: "Applied security patch to TB detection module",
-    },
-    {
-      action: "Access Control",
-      timestamp: "2025-05-04 11:30:45",
-      details: "Modified permissions for Laboratory department",
-    },
-    {
-      action: "Login",
-      timestamp: "2025-05-04 08:10:22",
-      details: "Successful login from 103.xx.xx.xx",
-    },
-  ];
-
-  const securitySettings = [
-    {
-      title: "Password",
-      status: "Last changed 30 days ago",
-      lastUpdated: "2025-04-05",
-      icon: <AlertCircle className="h-5 w-5 text-yellow-500" />,
-    },
-  ];
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error}</div>;
 
   return (
     <div className="flex flex-1 flex-col">
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
-            {/* Profile Banner */}
             <div className="relative mb-20">
               <div className="h-52 bg-[#001a6e] rounded-xl overflow-hidden shadow-xl">
                 <div className="absolute inset-0">
@@ -160,7 +219,6 @@ export default function ProfilePage() {
                   )}
                 </div>
               </div>
-
               <div className="absolute left-0 right-0 -bottom-16 flex items-end justify-center md:justify-start md:left-8">
                 <div className="flex flex-col md:flex-row items-center md:items-end">
                   <div className="w-28 h-28 rounded-xl bg-white p-1.5 shadow-xl">
@@ -188,16 +246,13 @@ export default function ProfilePage() {
                 </div>
               </div>
             </div>
-
             <div className="mt-24">
               <Tabs defaultValue="profile" className="w-full">
                 <TabsList className="mb-6 grid grid-cols-2 max-w-md mx-auto">
                   <TabsTrigger value="profile">Profile</TabsTrigger>
                   <TabsTrigger value="security">Security</TabsTrigger>
                 </TabsList>
-
                 <TabsContent value="profile" className="space-y-6">
-                  {/* Row 1: Profile Card */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Personal Information</CardTitle>
@@ -228,7 +283,6 @@ export default function ProfilePage() {
                             </div>
                           )}
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Email
@@ -250,7 +304,6 @@ export default function ProfilePage() {
                             </div>
                           )}
                         </div>
-
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Phone
@@ -267,12 +320,32 @@ export default function ProfilePage() {
                             <div className="flex items-center">
                               <Phone className="h-5 w-5 text-gray-400 mr-2" />
                               <span className="text-gray-800">
-                                {userData.phone}
+                                {userData.phone || "Not set"}
                               </span>
                             </div>
                           )}
                         </div>
-
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Address
+                          </label>
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              name="address"
+                              value={tempUserData.address}
+                              onChange={handleInputChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                            />
+                          ) : (
+                            <div className="flex items-center">
+                              <MapPin className="h-5 w-5 text-gray-400 mr-2" />
+                              <span className="text-gray-800">
+                                {userData.address || "Not set"}
+                              </span>
+                            </div>
+                          )}
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Role
@@ -299,50 +372,10 @@ export default function ProfilePage() {
                             </div>
                           )}
                         </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Address
-                          </label>
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              name="address"
-                              value={tempUserData.address}
-                              onChange={handleInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            />
-                          ) : (
-                            <div className="flex items-center">
-                              <MapPin className="h-5 w-5 text-gray-400 mr-2" />
-                              <span className="text-gray-800">
-                                {userData.address}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="md:col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Bio
-                          </label>
-                          {isEditing ? (
-                            <textarea
-                              name="bio"
-                              value={tempUserData.bio}
-                              onChange={handleInputChange}
-                              rows={4}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            />
-                          ) : (
-                            <p className="text-gray-800">{userData.bio}</p>
-                          )}
-                        </div>
                       </div>
                     </CardContent>
                   </Card>
                 </TabsContent>
-
                 <TabsContent value="security" className="space-y-6">
                   <Card>
                     <CardHeader>
@@ -353,7 +386,16 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-6">
-                        {securitySettings.map((setting, index) => (
+                        {[
+                          {
+                            title: "Password",
+                            status: "Last changed 30 days ago",
+                            lastUpdated: "2025-04-05",
+                            icon: (
+                              <AlertCircle className="h-5 w-5 text-yellow-500" />
+                            ),
+                          },
+                        ].map((setting, index) => (
                           <div
                             key={index}
                             className="flex items-center justify-between p-4 border border-gray-100 rounded-lg"
@@ -378,15 +420,6 @@ export default function ProfilePage() {
                         ))}
                       </div>
                     </CardContent>
-                    <CardFooter className="bg-gray-50 border-t border-gray-100 flex-col items-start gap-2">
-                      <div className="text-sm text-gray-600">
-                        <strong>Note:</strong> For security reasons, some
-                        actions may require additional verification.
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        Last security audit: April 28, 2025
-                      </div>
-                    </CardFooter>
                   </Card>
                 </TabsContent>
               </Tabs>
