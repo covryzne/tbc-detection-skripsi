@@ -1,4 +1,3 @@
-// app/admin/dashboard/page.tsx
 "use client";
 
 import {
@@ -21,7 +20,31 @@ export default function DashboardPage() {
 }
 
 function DashboardContent({ onShowAllClick }: { onShowAllClick: () => void }) {
-  const dashboardData = useDashboardData();
+  const { data, loading, error } = useDashboardData();
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-4">
+        <p>Loading dashboard...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-4">
+        <p className="text-red-500">Error: {error}</p>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-4">
+        <p>No data available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -29,13 +52,13 @@ function DashboardContent({ onShowAllClick }: { onShowAllClick: () => void }) {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
             <h1 className="text-2xl font-bold mb-6">Welcome Admin!</h1>
-            <DashboardSummary summaryData={dashboardData.summaryCards} />
+            <DashboardSummary summaryData={data.summaryCards} />
             <DashboardCharts
-              detectionData={dashboardData.detectionData}
-              regionalData={dashboardData.regionalData}
+              detectionData={data.detectionData}
+              regionalData={data.regionalData}
             />
             <RecentActivity
-              activityData={dashboardData.recentActivity}
+              activityData={data.recentActivity}
               onShowAllClick={onShowAllClick}
             />
           </div>

@@ -1,7 +1,13 @@
 "use client";
 
-import { createContext, useContext, ReactNode } from "react";
-import dashboardData from "@/app/admin/dummy/dashboard-data.json";
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useEffect,
+  useState,
+} from "react";
+import axios from "@/lib/axios";
 
 // Define types for our data
 export interface SummaryCardData {
@@ -35,7 +41,6 @@ export interface ActivityData {
 }
 
 export interface DashboardData {
-  user: any;
   summaryCards: SummaryCardData[];
   detectionData: DetectionData[];
   regionalData: RegionalData[];
@@ -43,9 +48,14 @@ export interface DashboardData {
 }
 
 // Create context
-const DashboardDataContext = createContext<DashboardData | undefined>(
-  undefined
-);
+const DashboardDataContext = createContext<
+  | {
+      data: DashboardData | null;
+      loading: boolean;
+      error: string | null;
+    }
+  | undefined
+>(undefined);
 
 // Provider component
 export const DashboardDataProvider = ({
@@ -53,8 +63,40 @@ export const DashboardDataProvider = ({
 }: {
   children: ReactNode;
 }) => {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          throw new Error("No auth token found. Please login again.");
+        }
+
+        const response = await axios.get("/api/v1/dashboard", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        setData(response.data);
+        setLoading(false);
+      } catch (err: any) {
+        const errorMsg =
+          err.response?.data?.detail ||
+          err.message ||
+          "Failed to fetch dashboard data";
+        setError(errorMsg);
+        setLoading(false);
+        console.error("Fetch error:", err.response?.data || err);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
-    <DashboardDataContext.Provider value={dashboardData as DashboardData}>
+    <DashboardDataContext.Provider value={{ data, loading, error }}>
       {children}
     </DashboardDataContext.Provider>
   );
@@ -65,7 +107,7 @@ export const useDashboardData = () => {
   const context = useContext(DashboardDataContext);
   if (context === undefined) {
     throw new Error(
-      "useDashboardData must be used within a DashboardDataProvider"
+      "useDashboardData must be used within a UDashboardDataProvider"
     );
   }
   return context;

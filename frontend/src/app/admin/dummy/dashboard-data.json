@@ -63,11 +63,11 @@
       "trendUp": true
     },
     {
-      "title": "Model Accuracy",
-      "value": "95.4%",
-      "description": "Overall detection accuracy",
+      "title": "Inference Time Average",
+      "value": "902ms",
+      "description": "Average time for TB detection",
       "iconType": "chart",
-      "trend": "+1.2% from last version",
+      "trend": "+5% from last month",
       "trendUp": true
     },
     {
