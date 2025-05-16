@@ -34,6 +34,7 @@ export default function RiwayatPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const itemsPerPage = 8;
 
   useEffect(() => {
@@ -49,12 +50,29 @@ export default function RiwayatPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
+        // Log format date dari API
+        console.log(
+          "[RiwayatPage] Raw date data:",
+          response.data.map((item: HistoryRecord) => item.date)
+        );
         setHistory(response.data);
         setLoading(false);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching history:", err);
         setLoading(false);
-        router.push("/login");
+        if (err.response?.status === 500) {
+          setError(
+            "Gagal memuat riwayat: Server mengalami masalah. Silakan coba lagi nanti."
+          );
+        } else if (err.response?.status === 403) {
+          setError("Akses ditolak: Hanya admin yang dapat melihat riwayat.");
+          router.push("/login");
+        } else {
+          setError(
+            "Gagal memuat riwayat: " + (err.message || "Terjadi kesalahan.")
+          );
+          router.push("/login");
+        }
       }
     };
 
@@ -130,20 +148,73 @@ export default function RiwayatPage() {
       console.log("Invalid confidence value:", confidence);
       return "-";
     }
-    const percentage = value > 1 ? value : value * 100;
-    const formatted = percentage.toFixed(2);
-    const isInteger = percentage % 1 === 0;
+    const formatted = value.toFixed(1);
     console.log(
-      `Confidence input: ${confidence}, parsed: ${value}, output: ${
-        isInteger ? percentage : formatted
-      }%`
+      `Confidence input: ${confidence}, parsed: ${value}, output: ${formatted}`
     );
+    return formatted;
+  };
 
-    return isInteger ? `${percentage}%` : `${formatted}%`;
+  // Mapping bulan dari Inggris ke Indo
+  const monthMap: { [key: string]: string } = {
+    Jan: "Jan",
+    Feb: "Feb",
+    Mar: "Mar",
+    Apr: "Apr",
+    May: "Mei",
+    Jun: "Jun",
+    Jul: "Jul",
+    Aug: "Agu",
+    Sep: "Sep",
+    Oct: "Okt",
+    Nov: "Nov",
+    Dec: "Des",
+  };
+
+  const formatDate = (date: string): string => {
+    // Handle format Mon DD, YYYY HH24:MI
+    if (date.match(/^[A-Za-z]{3} \d{2}, \d{4} \d{2}:\d{2}$/)) {
+      return date.replace(
+        /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/,
+        (match) => monthMap[match]
+      );
+    }
+    // Handle ISO format (2025-05-15T00:00:00)
+    try {
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) {
+        return "Tanggal tidak valid";
+      }
+      return parsedDate
+        .toLocaleString("id-ID", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })
+        .replace("pukul ", "");
+    } catch {
+      return "Tanggal tidak valid";
+    }
   };
 
   if (loading) {
-    return <div className="container mx-auto p-6">Loading...</div>;
+    return <div className="container mx-auto p-6">Memuat...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto p-6">
+        <div
+          className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+          role="alert"
+        >
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -152,7 +223,7 @@ export default function RiwayatPage() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">History Detection</h1>
+              <h1 className="text-2xl font-bold">Riwayat Deteksi</h1>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
@@ -225,16 +296,16 @@ export default function RiwayatPage() {
                         User
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Age
+                        Usia
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Date & Time
+                        Tanggal & Waktu
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Region
+                        Wilayah
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Detection Result
+                        Hasil Deteksi
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Confidence
@@ -260,13 +331,7 @@ export default function RiwayatPage() {
                             {detection.patient_age || "-"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(detection.date).toLocaleString("id-ID", {
-                              year: "numeric",
-                              month: "long",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatDate(detection.date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {detection.patient_address || "-"}
@@ -305,7 +370,7 @@ export default function RiwayatPage() {
                 <div className="text-sm text-gray-500">
                   Menampilkan{" "}
                   <span className="font-medium">
-                    {indexOfLastItem + 1}-
+                    {indexOfFirstItem + 1}-
                     {Math.min(indexOfLastItem, filteredDetections.length)}
                   </span>{" "}
                   dari{" "}

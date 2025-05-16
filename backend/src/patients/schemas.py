@@ -45,7 +45,7 @@ class PatientRecordCreate(BaseModel):
 
 class PatientRecordResponse(BaseModel):
     id: uuid.UUID
-    date: datetime
+    date: str  # Changed from datetime to str
     image_path: Optional[str]
     result: str
     confidence: Optional[str]

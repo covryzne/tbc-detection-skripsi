@@ -5,6 +5,8 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.database import Base
 import uuid
+from pydantic import BaseModel
+from typing import Optional
 
 class User(Base):
     __tablename__ = 'users'
@@ -53,3 +55,4 @@ class UserProfile(Base):
             f"address={self.address}"
             f")>"
         )
+    

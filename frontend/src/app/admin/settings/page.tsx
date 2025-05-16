@@ -58,7 +58,7 @@ export default function ProfilePage() {
 
         const userResponse = await axios.get("/api/v1/users/me");
         console.log("User response:", userResponse.data);
-        const user = userResponse.data; // Struktur datar
+        const user = userResponse.data;
 
         const profileResponse = await axios.get(
           "/api/v1/users/me/profile-details"
@@ -66,7 +66,6 @@ export default function ProfilePage() {
         console.log("Profile response:", profileResponse.data);
         const profile = profileResponse.data;
 
-        // Pastiin user punya data yang dibutuhin
         if (!user.id) {
           throw new Error("User ID not found in response");
         }
@@ -78,7 +77,9 @@ export default function ProfilePage() {
           role: user.is_admin ? "Administrator" : "User",
           phone: profile.phone || "",
           address: profile.address || "",
-          joinDate: user.created_at?.split("T")[0] || "Unknown",
+          joinDate: user.created_at
+            ? new Date(user.created_at).toISOString().split("T")[0]
+            : "Unknown",
         };
         setUserData(newUserData);
         setTempUserData(newUserData);
@@ -94,9 +95,7 @@ export default function ProfilePage() {
     fetchUserAndProfile();
   }, []);
 
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setTempUserData({
       ...tempUserData,
@@ -113,12 +112,25 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const response = await axios.patch("/api/v1/users/me/profile-details", {
+      const payload = {
+        full_name: tempUserData.name,
+        email: tempUserData.email,
         phone: tempUserData.phone,
         address: tempUserData.address,
-      });
+      };
+      console.log("Payload sent:", payload);
+      const response = await axios.patch(
+        "/api/v1/users/me/profile-details",
+        payload
+      );
       console.log("Save response:", response.data);
-      setUserData({ ...tempUserData });
+      setUserData({
+        ...tempUserData,
+        name: response.data.full_name,
+        email: response.data.email,
+        phone: response.data.phone || "",
+        address: response.data.address || "",
+      });
       setIsEditing(false);
     } catch (error) {
       console.error("Error saving profile:", error);
@@ -314,25 +326,11 @@ export default function ProfilePage() {
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Role
                           </label>
-                          {isEditing ? (
-                            <select
-                              name="role"
-                              value={tempUserData.role}
-                              onChange={handleInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            >
-                              <option value="Administrator">
-                                Administrator
-                              </option>
-                              <option value="User">User</option>
-                            </select>
-                          ) : (
-                            <div className="flex items-center">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                {userData.role}
-                              </span>
-                            </div>
-                          )}
+                          <div className="flex items-center">
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {userData.role}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </CardContent>

@@ -130,7 +130,8 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
         "email": user_dict["email"],
         "phone": user_dict.get("phone"),  # Nullable, pake dict.get()
         "address": user_dict.get("address"),  # Nullable, pake dict.get()
-        "is_admin": user_dict["is_admin"]
+        "is_admin": user_dict["is_admin"],
+        "created_at": user["created_at"].isoformat()
     }
     logger.debug(f"Returning user data: {response_data}")
     return response_data
@@ -286,108 +287,39 @@ async def get_users(Authorize: AuthJWT = Depends()):
 async def get_dashboard_data(Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
-    if not current_user["is_admin"]:
-        raise HTTPException(status_code=403, detail="Hanya admin yang bisa akses dashboard")
+    user_id = current_user["id"]
+    is_admin = current_user["is_admin"]
 
     try:
-        # 1. Summary Cards
+        # Data buat User dan Admin
+        # 1. Total Detections
         logger.debug("Running total_detections_query")
-        total_detections_query = select(func.count()).select_from(records)
+        total_detections_query = (
+            select(func.count())
+            .select_from(records)
+            .join(patients, records.c.patient_id == patients.c.id)
+            .where(patients.c.user_id == user_id if not is_admin else True)
+        )
         total_detections = await database.fetch_val(total_detections_query)
         logger.debug(f"Total detections: {total_detections}")
 
+        # 2. Positive Cases
         logger.debug("Running positive_cases_query")
-        positive_cases_query = select(func.count()).select_from(records).where(records.c.result == "Positive")
+        positive_cases_query = (
+            select(func.count())
+            .select_from(records)
+            .join(patients, records.c.patient_id == patients.c.id)
+            .where(
+                (records.c.result == "Positive") &
+                (patients.c.user_id == user_id if not is_admin else True)
+            )
+        )
         positive_cases = await database.fetch_val(positive_cases_query)
         logger.debug(f"Positive cases: {positive_cases}")
 
-        logger.debug("Running inference_time_query")
-        inference_time_query = select(
-            func.avg(
-                cast(
-                    func.regexp_replace(
-                        func.trim(records.c.inference_time),
-                        '\s*ms$',
-                        ''
-                    ),
-                    Numeric
-                )
-            )
-        ).where(records.c.inference_time.isnot(None))
-        inference_time_avg = await database.fetch_val(inference_time_query)
-        inference_time_avg = f"{float(inference_time_avg):.1f}ms" if inference_time_avg else "N/A"
-        logger.debug(f"Inference time avg: {inference_time_avg}")
-
-        logger.debug("Running active_users_query")
-        active_users_query = select(func.count()).select_from(User.__table__).where(User.is_active == True)
-        active_users = await database.fetch_val(active_users_query)
-        logger.debug(f"Active users: {active_users}")
-
-        # 2. Detection Data (trend bulanan, 6 bulan terakhir)
-        try:
-            logger.debug("Running detection_data_query")
-            raw_query = """
-                SELECT
-                    to_char(date, 'Mon') AS month,
-                    COUNT(*) AS detections,
-                    SUM(CASE WHEN result = 'Positive' THEN 1 ELSE 0 END) AS positives
-                FROM patient_records
-                GROUP BY to_char(date, 'Mon')
-            """
-            detection_data = await database.fetch_all(raw_query)
-
-            month_order = {
-                "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
-            }
-            detection_data = sorted(
-                [
-                    {
-                        "month": row["month"],
-                        "detections": row["detections"],
-                        "positives": row["positives"],
-                    }
-                    for row in detection_data
-                ],
-                key=lambda x: month_order.get(x["month"], 0),
-                reverse=True
-            )[:6]
-            logger.debug(f"Detection data: {detection_data}")
-        except Exception as e:
-            logger.error(f"Error in detection_data_query: {str(e)}", exc_info=True)
-            raise
-
-        # 3. Regional Data
-        try:
-            logger.debug("Running regional_data_query")
-            raw_query = """
-                SELECT
-                    patients.address AS region,
-                    COUNT(*) AS detections,
-                    SUM(CASE WHEN patient_records.result = 'Positive' THEN 1 ELSE 0 END) AS positives
-                FROM patient_records
-                JOIN patients ON patient_records.patient_id = patients.id
-                GROUP BY patients.address
-                ORDER BY COUNT(*) DESC
-                LIMIT 10
-            """
-            regional_data = await database.fetch_all(raw_query)
-            regional_data = [
-                {
-                    "region": row["region"] or "Unknown",
-                    "detections": row["detections"],
-                    "positives": row["positives"],
-                }
-                for row in regional_data
-            ]
-            logger.debug(f"Regional data: {regional_data}")
-        except Exception as e:
-            logger.error(f"Error in regional_data_query: {str(e)}", exc_info=True)
-            raise
-
-        # 4. Recent Activity
-        try:
-            logger.debug("Running recent_activity_query")
+        # 3. Recent Activity
+        logger.debug("Running recent_activity_query")
+        if is_admin:
             recent_activity_query = (
                 select(
                     User.id.label("userId"),
@@ -416,22 +348,120 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
                 }
                 for row in recent_activity
             ]
-            logger.debug(f"Recent activity: {recent_activity}")
-        except Exception as e:
-            logger.error(f"Error in recent_activity_query: {str(e)}", exc_info=True)
-            raise
+        else:
+            recent_activity_query = (
+                select(
+                    records.c.id,
+                    func.to_char(records.c.created_at, "Mon DD, YYYY HH24:MI").label("date"),
+                    records.c.result,
+                    records.c.confidence
+                )
+                .select_from(
+                    records.join(patients, records.c.patient_id == patients.c.id)
+                )
+                .where(patients.c.user_id == user_id)
+                .order_by(records.c.created_at.desc())
+                .limit(3)
+            )
+            recent_activity = await database.fetch_all(recent_activity_query)
+            recent_activity = [
+                {
+                    "id": str(row["id"]),
+                    "date": row["date"],
+                    "result": row["result"],
+                    "confidence": row["confidence"],
+                }
+                for row in recent_activity
+            ]
+        logger.debug(f"Recent activity: {recent_activity}")
 
-        # 5. Trends
-        try:
-            logger.debug("Running prev_month_detections_query")
+        # Data khusus Admin
+        if is_admin:
+            # 4. Inference Time Average
+            logger.debug("Running inference_time_query")
+            inference_time_query = select(
+                func.avg(
+                    func.cast(
+                        func.regexp_replace(
+                            func.trim(records.c.inference_time),
+                            '\s*ms$',
+                            ''
+                        ),
+                        Numeric
+                    )
+                )
+            ).where(records.c.inference_time.isnot(None))
+            inference_time_avg = await database.fetch_val(inference_time_query)
+            inference_time_avg = f"{float(inference_time_avg):.1f}ms" if inference_time_avg else "N/A"
+            logger.debug(f"Inference time avg: {inference_time_avg}")
+
+            # 5. Active Users
+            logger.debug("Running active_users_query")
+            active_users_query = select(func.count()).select_from(User.__table__).where(User.is_active == True)
+            active_users = await database.fetch_val(active_users_query)
+            logger.debug(f"Active users: {active_users}")
+
+            # 6. Detection Data (trend bulanan, 6 bulan terakhir)
+            logger.debug("Running detection_data_query")
+            raw_query = """
+                SELECT
+                    to_char(date, 'Mon') AS month,
+                    COUNT(*) AS detections,
+                    SUM(CASE WHEN result = 'Positive' THEN 1 ELSE 0 END) AS positives
+                FROM patient_records
+                GROUP BY to_char(date, 'Mon')
+            """
+            detection_data = await database.fetch_all(raw_query)
+            month_order = {
+                "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+                "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+            }
+            detection_data = sorted(
+                [
+                    {
+                        "month": row["month"],
+                        "detections": row["detections"],
+                        "positives": row["positives"],
+                    }
+                    for row in detection_data
+                ],
+                key=lambda x: month_order.get(x["month"], 0),
+                reverse=True
+            )[:6]
+            logger.debug(f"Detection data: {detection_data}")
+
+            # 7. Regional Data
+            logger.debug("Running regional_data_query")
+            raw_query = """
+                SELECT
+                    patients.address AS region,
+                    COUNT(*) AS detections,
+                    SUM(CASE WHEN patient_records.result = 'Positive' THEN 1 ELSE 0 END) AS positives
+                FROM patient_records
+                JOIN patients ON patient_records.patient_id = patients.id
+                GROUP BY patients.address
+                ORDER BY COUNT(*) DESC
+                LIMIT 10
+            """
+            regional_data = await database.fetch_all(raw_query)
+            regional_data = [
+                {
+                    "region": row["region"] or "Unknown",
+                    "detections": row["detections"],
+                    "positives": row["positives"],
+                }
+                for row in regional_data
+            ]
+            logger.debug(f"Regional data: {regional_data}")
+
+            # 8. Trends
+            logger.debug("Running trend queries")
             prev_month_detections_query = (
                 select(func.count())
                 .select_from(records)
                 .where(
-                    and_(
-                        records.c.created_at >= datetime.now() - timedelta(days=60),
-                        records.c.created_at < datetime.now() - timedelta(days=30)
-                    )
+                    (records.c.created_at >= datetime.now() - timedelta(days=60)) &
+                    (records.c.created_at < datetime.now() - timedelta(days=30))
                 )
             )
             prev_month_detections = await database.fetch_val(prev_month_detections_query)
@@ -440,22 +470,14 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
                 if prev_month_detections > 0
                 else "+0% from last month"
             )
-            logger.debug(f"Detections trend: {detections_trend}")
-        except Exception as e:
-            logger.error(f"Error in prev_month_detections_query: {str(e)}", exc_info=True)
-            raise
 
-        try:
-            logger.debug("Running prev_month_positives_query")
             prev_month_positives_query = (
                 select(func.count())
                 .select_from(records)
                 .where(
-                    and_(
-                        records.c.created_at >= datetime.now() - timedelta(days=60),
-                        records.c.created_at < datetime.now() - timedelta(days=30),
-                        records.c.result == "Positive"
-                    )
+                    (records.c.created_at >= datetime.now() - timedelta(days=60)) &
+                    (records.c.created_at < datetime.now() - timedelta(days=30)) &
+                    (records.c.result == "Positive")
                 )
             )
             prev_month_positives = await database.fetch_val(prev_month_positives_query)
@@ -464,22 +486,14 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
                 if prev_month_positives > 0
                 else "+0% from last month"
             )
-            logger.debug(f"Positives trend: {positives_trend}")
-        except Exception as e:
-            logger.error(f"Error in prev_month_positives_query: {str(e)}", exc_info=True)
-            raise
 
-        try:
-            logger.debug("Running prev_month_users_query")
             prev_month_users_query = (
                 select(func.count())
                 .select_from(User.__table__)
                 .where(
-                    and_(
-                        User.is_active == True,
-                        User.created_at >= datetime.now() - timedelta(days=60),
-                        User.created_at < datetime.now() - timedelta(days=30)
-                    )
+                    (User.is_active == True) &
+                    (User.created_at >= datetime.now() - timedelta(days=60)) &
+                    (User.created_at < datetime.now() - timedelta(days=30))
                 )
             )
             prev_month_users = await database.fetch_val(prev_month_users_query)
@@ -488,52 +502,76 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
                 if prev_month_users > 0
                 else "+0% from last month"
             )
-            logger.debug(f"Users trend: {users_trend}")
-        except Exception as e:
-            logger.error(f"Error in prev_month_users_query: {str(e)}", exc_info=True)
-            raise
 
-        inference_trend = "+5% from last month"
+            inference_trend = "+5% from last month"
 
-        return {
-            "summaryCards": [
-                {
-                    "title": "Total Detections",
-                    "value": str(total_detections),
-                    "description": "All-time TB detection scans",
-                    "iconType": "analysis",
-                    "trend": detections_trend,
-                    "trendUp": total_detections >= prev_month_detections,
-                },
-                {
-                    "title": "Positive Cases",
-                    "value": str(positive_cases),
-                    "description": "Detected TB positive cases",
-                    "iconType": "lungs",
-                    "trend": positives_trend,
-                    "trendUp": positive_cases >= prev_month_positives,
-                },
-                {
-                    "title": "Inference Time Average",
-                    "value": inference_time_avg,
-                    "description": "Average time for TB detection",
-                    "iconType": "chart",
-                    "trend": inference_trend,
-                    "trendUp": True,
-                },
-                {
-                    "title": "Active Users",
-                    "value": str(active_users),
-                    "description": "Users utilizing TB detection",
-                    "iconType": "users",
-                    "trend": users_trend,
-                    "trendUp": active_users >= prev_month_users,
-                },
-            ],
-            "detectionData": detection_data,
-            "regionalData": regional_data,
-            "recentActivity": recent_activity,
-        }
+            return {
+                "summaryCards": [
+                    {
+                        "title": "Total Detections",
+                        "value": str(total_detections),
+                        "description": "All-time TB detection scans",
+                        "iconType": "analysis",
+                        "trend": detections_trend,
+                        "trendUp": total_detections >= prev_month_detections,
+                    },
+                    {
+                        "title": "Positive Cases",
+                        "value": str(positive_cases),
+                        "description": "Detected TB positive cases",
+                        "iconType": "lungs",
+                        "trend": positives_trend,
+                        "trendUp": positive_cases >= prev_month_positives,
+                    },
+                    {
+                        "title": "Inference Time Average",
+                        "value": inference_time_avg,
+                        "description": "Average time for TB detection",
+                        "iconType": "chart",
+                        "trend": inference_trend,
+                        "trendUp": True,
+                    },
+                    {
+                        "title": "Active Users",
+                        "value": str(active_users),
+                        "description": "Users utilizing TB detection",
+                        "iconType": "users",
+                        "trend": users_trend,
+                        "trendUp": active_users >= prev_month_users,
+                    },
+                ],
+                "detectionData": detection_data,
+                "regionalData": regional_data,
+                "recentActivity": recent_activity,
+            }
+        else:
+            # Data buat User
+            positive_percentage = (
+                f"{(positive_cases / total_detections * 100):.1f}%"
+                if total_detections > 0
+                else "0%"
+            )
+            return {
+                "summaryCards": [
+                    {
+                        "title": "Total Predictions",
+                        "value": str(total_detections),
+                        "description": "Your all-time TB detection scans",
+                        "iconType": "analysis",
+                        "trend": "",
+                        "trendUp": True,
+                    },
+                    {
+                        "title": "Positive Cases",
+                        "value": str(positive_cases),
+                        "description": "Your detected TB positive cases",
+                        "iconType": "lungs",
+                        "trend": positive_percentage + " of total",
+                        "trendUp": positive_cases > 0,
+                    },
+                ],
+                "recentActivity": recent_activity,
+            }
     except Exception as e:
         logger.error(f"Error fetching dashboard data: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server")
@@ -566,41 +604,72 @@ async def update_profile_details(profile: UserProfileUpdate, Authorize: AuthJWT 
     logger.debug(f"Updating profile details for user: {user_id}")
 
     try:
+        # Cek apakah user ada
         query = User.__table__.select().where(User.id == user_id)
         existing_user = await database.fetch_one(query)
         if not existing_user:
             raise HTTPException(status_code=404, detail="User tidak ditemukan")
 
+        # Validasi email unik
+        if profile.email is not None:
+            query = User.__table__.select().where(User.email == profile.email, User.id != user_id)
+            if await database.fetch_one(query):
+                raise HTTPException(status_code=400, detail="Email sudah digunakan")
+
+        # Update users table
+        user_update_data = {}
+        if profile.full_name is not None:
+            user_update_data["full_name"] = profile.full_name
+        if profile.email is not None:
+            user_update_data["email"] = profile.email
+        if user_update_data:
+            user_update_data["updated_at"] = func.now()
+            query = (
+                User.__table__.update()
+                .where(User.id == user_id)
+                .values(**user_update_data)
+            )
+            await database.execute(query)
+            logger.debug(f"Updated user data for user: {user_id}")
+
+        # Update user_profiles table
         query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
         existing_profile = await database.fetch_one(query)
 
-        update_data = {}
+        profile_update_data = {}
         if profile.phone is not None:
-            update_data["phone"] = profile.phone
+            profile_update_data["phone"] = profile.phone
         if profile.address is not None:
-            update_data["address"] = profile.address
+            profile_update_data["address"] = profile.address
 
-        if update_data:
+        if profile_update_data:
+            profile_update_data["updated_at"] = func.now()
             if existing_profile:
                 query = (
                     UserProfile.__table__.update()
                     .where(UserProfile.user_id == user_id)
-                    .values(**update_data)
+                    .values(**profile_update_data)
                 )
                 await database.execute(query)
                 logger.debug(f"Updated existing profile for user: {user_id}")
             else:
                 query = (
                     UserProfile.__table__.insert()
-                    .values(user_id=user_id, **update_data)
+                    .values(user_id=user_id, **profile_update_data)
                 )
                 await database.execute(query)
                 logger.debug(f"Created new profile for user: {user_id}")
 
+        # Ambil data terbaru
+        query = User.__table__.select().where(User.id == user_id)
+        updated_user = await database.fetch_one(query)
         query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
         updated_profile = await database.fetch_one(query)
+
         return {
             "message": "Profile details updated successfully",
+            "full_name": updated_user["full_name"],
+            "email": updated_user["email"],
             "phone": updated_profile["phone"] if updated_profile else None,
             "address": updated_profile["address"] if updated_profile else None
         }

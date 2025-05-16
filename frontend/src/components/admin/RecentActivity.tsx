@@ -10,10 +10,11 @@ import {
 import { Button } from "../ui/button";
 
 interface ActivityData {
-  userId: string;
-  user: string;
+  id?: string;
+  userId?: string;
+  user?: string;
   date: string;
-  region: string;
+  region?: string;
   result: string;
   confidence: string;
 }
@@ -22,41 +23,61 @@ interface RecentActivityProps {
   activityData: ActivityData[];
   limit?: number;
   onShowAllClick?: () => void;
+  title: string;
+  description: string;
 }
 
 export const RecentActivity = ({
   activityData,
   limit = 6,
   onShowAllClick,
+  title,
+  description,
 }: RecentActivityProps) => {
-  // Limit the number of items to display
+  // Limit jumlah data yang ditampilkan
   const displayData = activityData.slice(0, limit);
+
+  // Cek apakah field tertentu ada di data untuk render kolom
+  const hasUserId = displayData.some((activity) => activity.userId);
+  const hasUser = displayData.some((activity) => activity.user);
+  const hasRegion = displayData.some((activity) => activity.region);
+
+  // Format userId: ambil sebelum '-', uppercase, max 9 karakter
+  const formatUserId = (userId?: string) => {
+    if (!userId) return "-";
+    const shortId = userId.includes("-") ? userId.split("-")[0] : userId;
+    return shortId.toUpperCase().slice(0, 9);
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Last User Detection Activity</CardTitle>
-        <CardDescription>
-          Latest TB detection scans performed in the system
-        </CardDescription>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                  User ID
-                </th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                  User
-                </th>
+                {hasUserId && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                    User ID
+                  </th>
+                )}
+                {hasUser && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                    User
+                  </th>
+                )}
                 <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
                   Date & Time
                 </th>
-                <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                  Region
-                </th>
+                {hasRegion && (
+                  <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
+                    Region
+                  </th>
+                )}
                 <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
                   Detection Result
                 </th>
@@ -68,21 +89,27 @@ export const RecentActivity = ({
             <tbody>
               {displayData.map((activity, index) => (
                 <tr
-                  key={index}
+                  key={activity.id || index}
                   className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"}`}
                 >
-                  <td className="px-4 py-2 text-sm text-gray-700">
-                    {activity.userId}
-                  </td>
-                  <td className="px-4 py-2 text-sm text-gray-700">
-                    {activity.user}
-                  </td>
+                  {hasUserId && (
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {formatUserId(activity.userId)}
+                    </td>
+                  )}
+                  {hasUser && (
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {activity.user || "-"}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-sm text-gray-700">
                     {activity.date}
                   </td>
-                  <td className="px-4 py-2 text-sm text-gray-700">
-                    {activity.region}
-                  </td>
+                  {hasRegion && (
+                    <td className="px-4 py-2 text-sm text-gray-700">
+                      {activity.region || "-"}
+                    </td>
+                  )}
                   <td className="px-4 py-2 text-sm">
                     <span
                       className={`inline-block px-2 py-1 rounded ${
@@ -106,7 +133,7 @@ export const RecentActivity = ({
           <div className="mt-4 text-right">
             <div className="flex justify-center">
               <Button onClick={onShowAllClick} variant="outline" size="sm">
-                Show All Activity
+                Tampilkan Semua Aktivitas
               </Button>
             </div>
           </div>

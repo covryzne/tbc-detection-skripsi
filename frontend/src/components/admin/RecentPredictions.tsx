@@ -1,5 +1,5 @@
-// components/admin/RecentPredictions.tsx
-import React from "react";
+"use client";
+
 import {
   Card,
   CardContent,
@@ -7,68 +7,46 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button"; // Tambah Button
-import { IconCircleCheck, IconAlertCircle } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
 
 interface Prediction {
-  id: string;
-  patientName: string;
+  id?: string;
+  userId?: string;
+  user?: string;
   date: string;
-  status: "positive" | "negative";
-  confidence: number;
+  region?: string;
+  result: string;
+  confidence: string;
 }
 
 interface RecentPredictionsProps {
   predictions: Prediction[];
-  title?: string;
-  description?: string;
-  maxItems?: number;
-  onShowAllClick?: () => void; // Tambah prop
+  onShowAllClick: () => void;
+  title: string;
+  description: string;
 }
 
-export function RecentPredictions({
+export const RecentPredictions = ({
   predictions,
-  title = "Recent Predictions",
-  description = "Latest TB detection results",
-  maxItems = 5,
   onShowAllClick,
-}: RecentPredictionsProps) {
-  const displayPredictions = predictions.slice(0, maxItems);
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "positive":
-        return (
-          <Badge className="bg-red-100 text-red-800 hover:bg-red-200">
-            <IconAlertCircle className="h-3.5 w-3.5 mr-1" />
-            Positive
-          </Badge>
-        );
-      case "negative":
-        return (
-          <Badge className="bg-green-100 text-green-800 hover:bg-green-200">
-            <IconCircleCheck className="h-3.5 w-3.5 mr-1" />
-            Negative
-          </Badge>
-        );
-      default:
-        return (
-          <Badge className="bg-gray-100 text-gray-800 hover:bg-gray-200">
-            Unknown
-          </Badge>
-        );
-    }
+  title,
+  description,
+}: RecentPredictionsProps) => {
+  // Fungsi buat format userId: ambil sebelum '-', uppercase, max 9 karakter
+  const formatUserId = (userId?: string) => {
+    if (!userId) return "";
+    const shortId = userId.includes("-") ? userId.split("-")[0] : userId;
+    const formattedId = shortId.toUpperCase().slice(0, 9);
+    console.log(
+      `[RecentPredictions] Formatting userId: ${userId} -> ${formattedId}`
+    );
+    return formattedId;
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("id-ID", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  console.log(
+    "[RecentPredictions] Received predictions:",
+    JSON.stringify(predictions, null, 2)
+  );
 
   return (
     <Card>
@@ -77,48 +55,52 @@ export function RecentPredictions({
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        {displayPredictions.length > 0 ? (
-          <div className="space-y-4">
-            {displayPredictions.map((prediction) => (
+        <div className="space-y-4">
+          {predictions.length > 0 ? (
+            predictions.map((prediction) => (
               <div
-                key={prediction.id}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                key={prediction.id || formatUserId(prediction.userId)}
+                className="flex items-center justify-between"
               >
                 <div>
-                  <h4 className="font-medium">{prediction.patientName}</h4>
+                  {prediction.userId && (
+                    <p className="text-sm font-medium">
+                      ID: {formatUserId(prediction.userId)}
+                    </p>
+                  )}
+                  {prediction.user && (
+                    <p className="text-sm font-medium">{prediction.user}</p>
+                  )}
+                  <p className="text-sm text-gray-500">{prediction.date}</p>
+                  {prediction.region && (
+                    <p className="text-sm text-gray-500">
+                      Region: {prediction.region}
+                    </p>
+                  )}
                   <p className="text-sm text-gray-500">
-                    {formatDate(prediction.date)}
+                    Result:{" "}
+                    <span
+                      className={
+                        prediction.result === "Positive"
+                          ? "text-red-500"
+                          : "text-green-500"
+                      }
+                    >
+                      {prediction.result}
+                    </span>
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right text-sm">
-                    <span className="font-medium">
-                      {prediction.confidence}%
-                    </span>
-                    <p className="text-xs text-gray-500">Confidence</p>
-                  </div>
-                  {getStatusBadge(prediction.status)}
-                </div>
+                <p className="text-sm text-gray-500">{prediction.confidence}</p>
               </div>
-            ))}
-            {onShowAllClick && predictions.length > 0 && (
-              <div className="mt-4 text-right">
-                <Button
-                  onClick={onShowAllClick}
-                  variant="outline"
-                  className="text-blue-600 hover:bg-blue-50"
-                >
-                  Show All Predictions
-                </Button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-6 text-gray-500">
-            No recent predictions available
-          </div>
-        )}
+            ))
+          ) : (
+            <p className="text-sm text-gray-500">No recent predictions</p>
+          )}
+        </div>
+        <Button variant="outline" className="mt-4" onClick={onShowAllClick}>
+          Show All
+        </Button>
       </CardContent>
     </Card>
   );
-}
+};

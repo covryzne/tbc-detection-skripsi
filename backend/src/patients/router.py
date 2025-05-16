@@ -1,11 +1,11 @@
 import uuid
 import json
 import logging
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Response
 from fastapi_jwt_auth import AuthJWT
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy.sql import cast
+from sqlalchemy.sql import cast, func
 from sqlalchemy.types import String
 from sqlalchemy import select
 from pydantic import BaseModel
@@ -35,6 +35,12 @@ class PredictionSaveRequest(BaseModel):
     phone: Optional[str] = None
     gender: Optional[str] = None
     age: Optional[int] = None
+
+class PatientRecordUserResponse(BaseModel):
+    id: str
+    dateTime: str
+    result: str
+    confidence: str
 
 async def create_temp_user_and_patient(
     user_id: str,
@@ -214,13 +220,22 @@ async def get_all_records(Authorize: AuthJWT = Depends()):
         await database.execute("SELECT 1")
         logger.debug("Database connection successful")
 
+        # Cek kolom di tabel patient_records
+        columns = await database.fetch_all("SELECT column_name FROM information_schema.columns WHERE table_name = 'patient_records'")
+        column_names = [col['column_name'] for col in columns]
+        logger.debug(f"Columns in patient_records table: {column_names}")
+
+        if 'created_at' not in column_names:
+            logger.error("Column 'created_at' not found in patient_records table")
+            raise HTTPException(status_code=500, detail="Column 'created_at' not found in patient_records table")
+
         query = (
             records.join(patients, records.c.patient_id == patients.c.id)
             .select()
             .with_only_columns(
                 records.c.id,
                 records.c.patient_id,
-                records.c.date,
+                func.to_char(records.c.created_at, "Mon DD, YYYY HH24:MI").label("date"),
                 records.c.image_path,
                 records.c.result,
                 records.c.confidence,
@@ -236,7 +251,14 @@ async def get_all_records(Authorize: AuthJWT = Depends()):
         records_data = await database.fetch_all(query)
         logger.debug(f"Records fetched: {len(records_data)} records")
         
-        return PatientRecordResponse.parse(records_data)
+        try:
+            response = PatientRecordResponse.parse(records_data)
+            logger.debug("Successfully parsed records to PatientRecordResponse")
+            return response
+        except Exception as parse_error:
+            logger.error(f"Error parsing records to PatientRecordResponse: {str(parse_error)}", exc_info=True)
+            raise HTTPException(status_code=500, detail=f"Error parsing response: {str(parse_error)}")
+            
     except Exception as e:
         logger.error(f"Error mengambil riwayat: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error mengambil riwayat: {str(e)}")
@@ -284,3 +306,80 @@ async def create_patient(patient_id: str, patient_record: PatientRecordCreate, A
     except Exception as e:
         logger.error(f"Error creating patient record: {str(e)}", exc_info=True)
         raise HTTPException(status_code=404, detail=str(e))
+
+@router.get("/patient-records/me", response_model=List[PatientRecordUserResponse])
+async def get_user_patient_records(
+    search: Optional[str] = None,
+    status: Optional[str] = None,
+    date_from: Optional[str] = None,  # Ubah ke str
+    date_to: Optional[str] = None,    # Ubah ke str
+    page: int = 1,
+    limit: int = 8,
+    Authorize: AuthJWT = Depends()
+):
+    Authorize.jwt_required()
+    current_user = json.loads(Authorize.get_jwt_subject())
+    user_id = current_user["id"]
+    logger.debug(f"Fetching patient records for user: {user_id}")
+
+    try:
+        # Query dengan join
+        query = (
+            select(PatientRecord.__table__)
+            .join(Patient, Patient.id == PatientRecord.patient_id)
+            .join(User, User.id == Patient.user_id)
+            .where(User.id == user_id)
+        )
+
+        # Filter search
+        if search:
+            query = query.where(PatientRecord.result.ilike(f"%{search}%"))
+
+        # Filter status
+        if status in ("positive", "negative"):
+            query = query.where(PatientRecord.result == status.capitalize())
+
+        # Filter date range
+        parsed_date_from = None
+        parsed_date_to = None
+        if date_from:
+            try:
+                parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
+                query = query.where(PatientRecord.date >= parsed_date_from)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Format date_from harus YYYY-MM-DD")
+        if date_to:
+            try:
+                parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
+                query = query.where(PatientRecord.date <= parsed_date_to)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="Format date_to harus YYYY-MM-DD")
+
+        # Hitung total item
+        count_query = query.with_only_columns(func.count()).order_by(None)
+        total_items = await database.fetch_val(count_query)
+
+        # Pagination
+        offset = (page - 1) * limit
+        query = query.offset(offset).limit(limit)
+
+        # Eksekusi query
+        records = await database.fetch_all(query)
+
+        # Format response
+        response = [
+            {
+                "id": str(record["id"]),
+                "dateTime": record["date"].strftime("%b %d, %Y %H:%M"),
+                "result": record["result"],
+                "confidence": f"{record['confidence']}%"
+            }
+            for record in records
+        ]
+
+        # Tambah header X-Total-Count
+        headers = {"X-Total-Count": str(total_items)}
+        return Response(content=json.dumps(response), media_type="application/json", headers=headers)
+    except Exception as e:
+        logger.error(f"Error fetching patient records: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
