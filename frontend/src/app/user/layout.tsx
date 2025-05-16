@@ -7,6 +7,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function UserLayout({
   children,
@@ -68,6 +69,7 @@ export default function UserLayout({
         <SiteHeader />
         <main>{children}</main>
       </SidebarInset>
+      <Toaster position="top-right" richColors />
     </SidebarProvider>
   );
 }

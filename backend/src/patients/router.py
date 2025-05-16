@@ -3,21 +3,38 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi_jwt_auth import AuthJWT
-from typing import List
+from typing import List, Optional
 from datetime import datetime
 from sqlalchemy.sql import cast
 from sqlalchemy.types import String
+from sqlalchemy import select
+from pydantic import BaseModel
 
 from .models import patients, Patient, records, PatientRecord
 from src.accounts.models import User
 from src.database import database
-from .schemas import PatientCreate, PatientResponse, PatientRecordCreate, PatientRecordResponse, PredictionSaveRequest
+from .schemas import PatientCreate, PatientResponse, PatientRecordCreate, PatientRecordResponse
 
 router = APIRouter()
 
 # Setup logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+class PredictionSaveRequest(BaseModel):
+    userId: Optional[str] = None
+    status: str
+    confidence: float
+    details: str
+    date: str
+    fileName: str
+    fileSize: int
+    fileType: str
+    name: Optional[str] = None
+    region: Optional[str] = None
+    phone: Optional[str] = None
+    gender: Optional[str] = None
+    age: Optional[int] = None
 
 async def create_temp_user_and_patient(
     user_id: str,
@@ -32,7 +49,7 @@ async def create_temp_user_and_patient(
         "full_name": name,
         "email": f"temp_{user_id}@example.com",
         "password": hash_password("temp_password"),
-        "is_active": False,  # Temp user inactive
+        "is_active": False,
         "is_admin": False
     }
     query = User.__table__.insert().values(**temp_user).returning(User.__table__)
@@ -58,39 +75,56 @@ async def save_prediction(request: PredictionSaveRequest, Authorize: AuthJWT = D
     current_user = json.loads(Authorize.get_jwt_subject())
     logger.debug(f"Current user in save_prediction: {current_user}")
 
-    if not current_user["is_admin"]:
-        raise HTTPException(status_code=403, detail="Hanya admin yang bisa menyimpan prediksi")
-
     try:
-        try:
-            uuid.UUID(request.userId)
-        except ValueError:
-            raise HTTPException(status_code=400, detail="userId harus berupa UUID yang valid")
-
+        # Validasi gender
         valid_genders = ['male', 'female', 'other', None]
         if request.gender not in valid_genders:
             raise HTTPException(status_code=400, detail="Gender harus 'male', 'female', atau 'other'")
 
-        query = User.__table__.select().where(User.id == request.userId)
-        user = await database.fetch_one(query)
+        # Kalo admin dan userId ada, bikin temp user/patient
+        if current_user["is_admin"] and request.userId:
+            try:
+                uuid.UUID(request.userId)
+            except ValueError:
+                raise HTTPException(status_code=400, detail="userId harus berupa UUID yang valid")
 
-        if not user:
-            user, patient = await create_temp_user_and_patient(
-                request.userId,
-                name=request.name or "Temp User",
-                region=request.region or "Unknown",
-                phone=request.phone,
-                gender=request.gender,
-                age=request.age
-            )
-        else:
-            query = patients.select().where(Patient.user_id == user["id"])
-            patient = await database.fetch_one(query)
-            if not patient:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Tidak ada pasien yang terkait dengan user ini"
+            query = select(User.__table__).where(User.id == request.userId)
+            user = await database.fetch_one(query)
+
+            if not user:
+                user, patient = await create_temp_user_and_patient(
+                    request.userId,
+                    name=request.name or "Temp User",
+                    region=request.region or "Unknown",
+                    phone=request.phone,
+                    gender=request.gender,
+                    age=request.age
                 )
+            else:
+                query = select(patients).where(patients.c.user_id == user["id"])
+                patient = await database.fetch_one(query)
+                if not patient:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Tidak ada pasien yang terkait dengan user ini"
+                    )
+        else:
+            # User biasa: Pake current_user["id"]
+            query = select(patients).where(patients.c.user_id == current_user["id"])
+            patient = await database.fetch_one(query)
+
+            if not patient:
+                patient_data = {
+                    "id": str(uuid.uuid4()),
+                    "user_id": current_user["id"],
+                    "name": current_user.get("full_name", "Unknown User"),
+                    "address": request.region or "Unknown",
+                    "phone": request.phone,
+                    "gender": request.gender,
+                    "age": request.age
+                }
+                query = patients.insert().values(**patient_data).returning(patients)
+                patient = await database.fetch_one(query)
 
         try:
             record_date = datetime.strptime(request.date, "%m/%d/%Y")
@@ -177,7 +211,6 @@ async def get_all_records(Authorize: AuthJWT = Depends()):
         raise HTTPException(status_code=403, detail="Hanya admin yang bisa melihat semua riwayat")
 
     try:
-        # Test koneksi DB
         await database.execute("SELECT 1")
         logger.debug("Database connection successful")
 
@@ -194,7 +227,7 @@ async def get_all_records(Authorize: AuthJWT = Depends()):
                 records.c.inference_time,
                 patients.c.name.label("patient_name"),
                 patients.c.age.label("patient_age"),
-                cast(patients.c.gender, String).label("patient_gender"),  # Konversi gender ke string
+                cast(patients.c.gender, String).label("patient_gender"),
                 patients.c.phone.label("patient_phone"),
                 patients.c.address.label("patient_address")
             )

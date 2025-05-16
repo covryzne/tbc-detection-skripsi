@@ -55,9 +55,10 @@ export default function ProfilePage() {
         const token = localStorage.getItem("auth_token");
         console.log("Token from localStorage:", token);
         console.log("Cookies:", document.cookie);
+
         const userResponse = await axios.get("/api/v1/users/me");
         console.log("User response:", userResponse.data);
-        const user = userResponse.data;
+        const user = userResponse.data; // Struktur datar
 
         const profileResponse = await axios.get(
           "/api/v1/users/me/profile-details"
@@ -65,44 +66,27 @@ export default function ProfilePage() {
         console.log("Profile response:", profileResponse.data);
         const profile = profileResponse.data;
 
+        // Pastiin user punya data yang dibutuhin
+        if (!user.id) {
+          throw new Error("User ID not found in response");
+        }
+
         const newUserData = {
-          id: user.user.id || "Unknown",
-          name: user.user.full_name || "Unknown",
-          email: user.user.email || "Unknown",
-          role: user.user.is_admin ? "Administrator" : "User",
+          id: user.id || "Unknown",
+          name: user.full_name || "Unknown",
+          email: user.email || "Unknown",
+          role: user.is_admin ? "Administrator" : "User",
           phone: profile.phone || "",
           address: profile.address || "",
-          joinDate: user.user.created_at?.split("T")[0] || "Unknown",
+          joinDate: user.created_at?.split("T")[0] || "Unknown",
         };
         setUserData(newUserData);
         setTempUserData(newUserData);
       } catch (error) {
-        if (
-          typeof error === "object" &&
-          error !== null &&
-          "response" in error
-        ) {
-          // @ts-ignore
-          console.error(
-            "Error fetching user/profile:",
-            // @ts-ignore
-            error.response?.data || error
-          );
-          // @ts-ignore
-          setError(
-            typeof error.response === "object" &&
-              error.response !== null &&
-              "data" in error.response &&
-              typeof (error.response as any).data === "object" &&
-              (error.response as any).data !== null &&
-              "detail" in (error.response as any).data
-              ? (error.response as any).data.detail
-              : "Failed to load profile data"
-          );
-        } else {
-          console.error("Error fetching user/profile:", error);
-          setError("Failed to load profile data");
-        }
+        console.error("Error fetching user/profile:", error);
+        setError(
+          error instanceof Error ? error.message : "Failed to load profile data"
+        );
       } finally {
         setIsLoading(false);
       }
@@ -137,30 +121,10 @@ export default function ProfilePage() {
       setUserData({ ...tempUserData });
       setIsEditing(false);
     } catch (error) {
-      if (error && typeof error === "object" && "response" in error) {
-        // @ts-ignore
-        console.error("Error saving profile:", error.response?.data || error);
-        // @ts-ignore
-        let detail = "Unknown error";
-        if (
-          error &&
-          typeof error === "object" &&
-          "response" in error &&
-          error.response &&
-          typeof error.response === "object" &&
-          "data" in error.response &&
-          error.response.data &&
-          typeof error.response.data === "object" &&
-          "detail" in error.response.data
-        ) {
-          // @ts-ignore
-          detail = error.response.data.detail;
-        }
-        alert(`Error saving profile: ${detail}`);
-      } else {
-        console.error("Error saving profile:", error);
-        alert("Error saving profile: Unknown error");
-      }
+      console.error("Error saving profile:", error);
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to save profile data";
+      alert(`Error saving profile: ${errorMsg}`);
     }
   };
 
@@ -360,6 +324,7 @@ export default function ProfilePage() {
                               <option value="Administrator">
                                 Administrator
                               </option>
+                              <option value="User">User</option>
                             </select>
                           ) : (
                             <div className="flex items-center">

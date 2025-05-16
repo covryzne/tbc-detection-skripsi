@@ -106,11 +106,34 @@ async def login(user: UserLogin, Authorize: AuthJWT = Depends(), response: Respo
 
     return {"access_token": access_token}
 
-@router.get('/users/me')
-async def user(Authorize: AuthJWT = Depends()):
+@router.get("/users/me")
+async def get_current_user(Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
-    current_user = Authorize.get_jwt_subject()
-    return {"user": json.loads(current_user)}
+    current_user = json.loads(Authorize.get_jwt_subject())
+    logger.debug(f"JWT payload: {current_user}")
+
+    # Ambil data user dari database
+    query = User.__table__.select().where(User.id == current_user["id"])
+    user = await database.fetch_one(query)
+    
+    if not user:
+        logger.error(f"User not found in database for ID: {current_user['id']}")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Cast Record ke dict biar aman
+    user_dict = dict(user)
+    
+    # Format response sesuai frontend
+    response_data = {
+        "id": str(user_dict["id"]),  # UUID jadi string
+        "full_name": user_dict["full_name"],
+        "email": user_dict["email"],
+        "phone": user_dict.get("phone"),  # Nullable, pake dict.get()
+        "address": user_dict.get("address"),  # Nullable, pake dict.get()
+        "is_admin": user_dict["is_admin"]
+    }
+    logger.debug(f"Returning user data: {response_data}")
+    return response_data
 
 @router.get("/users/", response_model=List[UserResponse])
 async def get_users(Authorize: AuthJWT = Depends()):

@@ -1,42 +1,28 @@
 "use client";
 
-import { useState, useEffect, SetStateAction, ReactNode } from "react";
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import axios from "@/lib/axios";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PredictionAnalyzer } from "@/components/admin/PredictionAnalyzer";
 import { HowItWorks } from "@/components/admin/HowItWorks";
 import { ComingSoon } from "@/components/admin/ComingSoon";
-import { RecentPredictions } from "@/components/admin/RecentPredictions";
-import { PredictionStats } from "@/components/admin/PredictionStats";
-import { Card, CardContent } from "@/components/ui/card";
-import { IconRefresh, IconDownload, IconPlus } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 export default function PrediksiPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("x-ray");
   const [userData, setUserData] = useState<{
-    userId: string;
-    name: string;
-    dateTime: string;
-    region: string;
+    id: string;
+    full_name: string;
+    email: string;
+    phone: string | null;
+    address: string | null;
+    is_admin: boolean;
   } | null>(null);
-  const [showUserDialog, setShowUserDialog] = useState(false);
-  const [userName, setUserName] = useState("");
-  const [userRegion, setUserRegion] = useState("");
-  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // X-ray detection process steps
   const xraySteps = [
     {
       title: "Image Processing",
@@ -55,7 +41,6 @@ export default function PrediksiPage() {
     },
   ];
 
-  // Sputum analysis process steps
   const sputumSteps = [
     {
       title: "Sample Digitization",
@@ -74,99 +59,133 @@ export default function PrediksiPage() {
     },
   ];
 
-  // Symptoms analysis process steps
-  const symptomsSteps = [
-    {
-      title: "Symptom Input",
-      description:
-        "User symptoms and clinical observations are entered into the system.",
-    },
-    {
-      title: "Pattern Recognition",
-      description:
-        "Our ML algorithms analyze symptom patterns against known TB cases.",
-    },
-    {
-      title: "Risk Stratification",
-      description:
-        "A risk assessment is provided based on symptom correlation with TB cases.",
-    },
-    {
-      title: "Recommendation",
-      description:
-        "Specific testing recommendations based on the symptom profile.",
-    },
-  ];
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const token = localStorage.getItem("auth_token");
+        if (!token) {
+          toast.error("No auth token found. Please login again.");
+          router.push("/login");
+          return;
+        }
+        const response = await axios.get("/api/v1/users/me");
+        setUserData(response.data);
+      } catch (err: any) {
+        const errorMsg =
+          err.response?.data?.detail || "Failed to fetch user data";
+        setError(errorMsg);
+        toast.error(errorMsg);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchUserData();
+  }, [router]);
 
-  // Function to generate a random user ID
-  const generateUserId = () => {
-    const randomPart = Math.random().toString(36).substring(2, 8).toUpperCase();
-    return `USR-${randomPart}`;
-  };
-
-  // Function to get current date and time in a formatted string
-  const getCurrentDateTime = () => {
-    const now = new Date();
-    return now.toLocaleString("id-ID", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
-  };
-
-  const handleUserSubmit = (e: { preventDefault: () => void }) => {
-    e.preventDefault();
-
-    if (!userName.trim()) {
-      setError("User name is required");
-      return;
-    }
-
-    if (!userRegion.trim()) {
-      setError("Region is required");
-      return;
-    }
-
-    // Create new user with generated ID and current date/time
-    setUserData({
-      userId: generateUserId(),
-      name: userName,
-      dateTime: getCurrentDateTime(),
-      region: userRegion,
-    });
-
-    // Close dialog and reset form
-    setShowUserDialog(false);
-    setUserName("");
-    setUserRegion("");
-    setError("");
-  };
-
-  const handleTabChange = (value: SetStateAction<string>) => {
+  const handleTabChange = (value: string) => {
     setActiveTab(value);
   };
 
-  // Simulate API analysis call
-  const handleAnalyzeRequest = async (file: any) => {
-    // This would be an actual API call in production
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const isPositive = Math.random() > 0.7;
-        const confidence = 70 + Math.floor(Math.random() * 25);
+  const handleAnalyzeRequest = async (file: File) => {
+    if (!userData) {
+      toast.error("User data not loaded. Please try again.");
+      return null;
+    }
 
-        resolve({
-          status: isPositive ? "positive" : "negative",
-          confidence: confidence,
-          details: isPositive
-            ? "Analysis shows signs consistent with tuberculosis infection. Please consult with a healthcare professional for further examination."
-            : "No significant signs of tuberculosis detected in the sample.",
-        });
-      }, 2000);
-    });
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("type", activeTab);
+
+      const response = await axios.post("/api/v1/predict", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const result = response.data;
+
+      let status: "positive" | "negative" | "error";
+      const className = result.predictions.class_name.toLowerCase();
+      if (className === "tuberculosis" || className === "tbc") {
+        status = "positive";
+      } else if (className === "normal") {
+        status = "negative";
+      } else {
+        throw new Error(`Unexpected class_name: ${className}`);
+      }
+
+      const confidence = Math.min(
+        parseFloat(result.predictions.confidence.toFixed(2)) * 100,
+        100
+      );
+
+      return {
+        status,
+        confidence,
+        details: `Inference time: ${result.inference_time}`,
+        fileName: file.name,
+        date: new Date().toLocaleDateString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+        }),
+        fileSize: file.size,
+        fileType: file.type,
+        analyzedAt: new Date().toISOString(),
+      };
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.detail || err.message || "Failed to analyze file";
+      console.error("Error analyzing file:", err);
+      toast.error("Gagal menganalisis file", {
+        description: errorMsg,
+      });
+      return {
+        status: "error",
+        confidence: 0,
+        details: errorMsg,
+        fileName: file.name,
+        date: new Date().toLocaleDateString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+        }),
+      };
+    }
   };
+
+  const handleSaveResult = async (result: any) => {
+    if (!userData) return false;
+
+    try {
+      await axios.post("/api/v1/predictions/save", {
+        status: result.status,
+        confidence: result.confidence,
+        details: result.details,
+        date: result.date,
+        fileName: result.fileName,
+        fileSize: result.fileSize,
+        fileType: result.fileType,
+      });
+      toast.success("Hasil prediksi berhasil disimpan");
+      return true;
+    } catch (err: any) {
+      const errorMsg =
+        err.response?.data?.detail || "Failed to save prediction";
+      console.error("Error saving result:", err);
+      toast.error("Gagal menyimpan hasil prediksi", {
+        description: errorMsg,
+      });
+      return false;
+    }
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-6">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center py-6 text-red-500">{error}</div>;
+  }
 
   return (
     <div className="flex flex-1 flex-col">
@@ -175,197 +194,56 @@ export default function PrediksiPage() {
           <div className="px-4 lg:px-6">
             <div className="flex justify-between items-center mb-6">
               <h1 className="text-2xl font-bold">Tuberculosis Prediction</h1>
-              <div className="flex space-x-2">
-                <Button variant="outline" size="sm">
-                  <IconDownload className="h-4 w-4 mr-1" />
-                  Export
-                </Button>
-              </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mt-6">
-              <div className="lg:col-span-4">
-                <Card>
-                  <CardContent className="p-6">
-                    {userData ? (
-                      <div className="space-y-4">
-                        <h3 className="font-medium text-lg">Current User</h3>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <tbody>
-                              <tr className="border-b">
-                                <td className="py-2 text-gray-500 font-medium">
-                                  User ID
-                                </td>
-                                <td className="py-2">{userData.userId}</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 text-gray-500 font-medium">
-                                  Full Name
-                                </td>
-                                <td className="py-2">{userData.name}</td>
-                              </tr>
-                              <tr className="border-b">
-                                <td className="py-2 text-gray-500 font-medium">
-                                  Date & Time
-                                </td>
-                                <td className="py-2">{userData.dateTime}</td>
-                              </tr>
-                              <tr>
-                                <td className="py-2 text-gray-500 font-medium">
-                                  Region
-                                </td>
-                                <td className="py-2">{userData.region}</td>
-                              </tr>
-                            </tbody>
-                          </table>
-                        </div>
-                        <div className="flex space-x-2 mt-4">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setShowUserDialog(true)}
-                          >
-                            Change
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setUserData(null)}
-                          >
-                            Clear
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-4">
-                        <h3 className="font-medium text-lg mb-2">
-                          No User Selected
-                        </h3>
-                        <p className="text-gray-500 text-sm mb-4">
-                          Add user details before proceeding with analysis
-                        </p>
-                        <Button onClick={() => setShowUserDialog(true)}>
-                          <IconPlus className="h-4 w-4 mr-1" />
-                          Add User
-                        </Button>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <Tabs
+              defaultValue="x-ray"
+              className="w-full"
+              value={activeTab}
+              onValueChange={handleTabChange}
+            >
+              <TabsList className="mb-4">
+                <TabsTrigger value="x-ray">X-Ray Analysis</TabsTrigger>
+                <TabsTrigger value="sputum">Sputum Sample</TabsTrigger>
+              </TabsList>
 
-            {/* User Add/Edit Dialog */}
-            <Dialog open={showUserDialog} onOpenChange={setShowUserDialog}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add User to be Predicted</DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleUserSubmit}>
-                  <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="userName">Full Name</Label>
-                      <Input
-                        id="userName"
-                        placeholder="Enter user name"
-                        value={userName}
-                        onChange={(e) => setUserName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="userRegion">Region</Label>
-                      <Input
-                        id="userRegion"
-                        placeholder="Enter user region"
-                        value={userRegion}
-                        onChange={(e) => setUserRegion(e.target.value)}
-                      />
-                    </div>
-                    {error && <p className="text-sm text-red-500">{error}</p>}
-                  </div>
-                  <DialogFooter className="mt-4">
-                    <Button
-                      variant="outline"
-                      type="button"
-                      onClick={() => {
-                        setShowUserDialog(false);
-                        setUserName("");
-                        setUserRegion("");
-                        setError("");
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                    <Button type="submit">Add User</Button>
-                  </DialogFooter>
-                </form>
-              </DialogContent>
-            </Dialog>
+              <TabsContent value="x-ray" className="space-y-4">
+                <PredictionAnalyzer
+                  title="X-Ray Image Analysis"
+                  description="Upload a chest X-ray image for tuberculosis detection analysis"
+                  fileTypes="image/png,image/jpeg"
+                  fileTypesDescription="Upload X-ray image in PNG or JPG format"
+                  analyzeButtonText="Analyze X-ray"
+                  userId={userData?.id}
+                  onAnalyzeRequested={handleAnalyzeRequest}
+                  onSaveResult={handleSaveResult}
+                  hasUser={!!userData}
+                  onValidationError={() => {
+                    toast.error("User data not loaded", {
+                      description: "Please try refreshing the page.",
+                    });
+                  }}
+                />
+                <HowItWorks
+                  title="How X-Ray Analysis Works"
+                  description="Understanding the X-ray based TB detection process"
+                  steps={xraySteps}
+                />
+              </TabsContent>
 
-            <div className="mt-6">
-              <Tabs
-                defaultValue="x-ray"
-                className="w-full"
-                value={activeTab}
-                onValueChange={handleTabChange}
-              >
-                <div className="flex justify-between items-center">
-                  <TabsList className="mb-4">
-                    <TabsTrigger value="x-ray">X-Ray Analysis</TabsTrigger>
-                    <TabsTrigger value="sputum">Sputum Sample</TabsTrigger>
-                    <TabsTrigger value="symptoms">
-                      Symptoms Analysis
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <TabsContent value="x-ray" className="space-y-4">
-                  <PredictionAnalyzer
-                    title="X-Ray Image Analysis"
-                    description="Upload a chest X-ray image for tuberculosis detection analysis"
-                    fileTypes="image/png,image/jpeg"
-                    fileTypesDescription="Upload X-ray image in PNG or JPG format"
-                    analyzeButtonText="Analyze X-ray"
-                    onAnalyzeRequested={handleAnalyzeRequest}
-                  />
-
-                  <HowItWorks
-                    title="How X-Ray Analysis Works"
-                    description="Understanding the X-ray based TB detection process"
-                    steps={xraySteps}
-                  />
-                </TabsContent>
-
-                <TabsContent value="sputum" className="space-y-4">
-                  <ComingSoon
-                    title="Sputum Sample Analysis"
-                    description="Upload sputum sample microscopy images for TB detection"
-                    message="The sputum sample analysis module is under development and will be available in the next update."
-                  />
-
-                  <HowItWorks
-                    title="How Sputum Analysis Will Work"
-                    description="Understanding the sputum-based TB detection process"
-                    steps={sputumSteps}
-                  />
-                </TabsContent>
-
-                <TabsContent value="symptoms" className="space-y-4">
-                  <ComingSoon
-                    title="Symptoms Analysis"
-                    description="Check TB risk based on reported symptoms"
-                    message="The symptoms analysis module is under development and will be available in the next update."
-                  />
-
-                  <HowItWorks
-                    title="How Symptoms Analysis Will Work"
-                    description="Understanding the symptoms-based TB risk assessment"
-                    steps={symptomsSteps}
-                  />
-                </TabsContent>
-              </Tabs>
-            </div>
+              <TabsContent value="sputum" className="space-y-4">
+                <ComingSoon
+                  title="Sputum Sample Analysis"
+                  description="Upload sputum sample microscopy images for TB detection"
+                  message="The sputum sample analysis module is under development and will be available in the next update."
+                />
+                <HowItWorks
+                  title="How Sputum Analysis Will Work"
+                  description="Understanding the sputum-based TB detection process"
+                  steps={sputumSteps}
+                />
+              </TabsContent>
+            </Tabs>
           </div>
         </div>
       </div>

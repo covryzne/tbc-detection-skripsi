@@ -34,12 +34,12 @@ export default function UserDashboard() {
       try {
         setIsLoading(true);
         // Fetch statistik user
-        const statsRes = await axios.get("/api/v1/users/me/predictions/stats");
-        setStats(statsRes.data);
+        // const statsRes = await axios.get("/api/v1/users/me/predictions/stats");
+        // setStats(statsRes.data);
 
-        // Fetch prediksi user
-        const predRes = await axios.get("/api/v1/users/me/predictions");
-        setPredictions(predRes.data);
+        // // Fetch prediksi user
+        // const predRes = await axios.get("/api/v1/users/me/predictions");
+        // setPredictions(predRes.data);
       } catch (err: any) {
         setError("Failed to load data. Please try again.");
         console.error("Error fetching data:", err);
