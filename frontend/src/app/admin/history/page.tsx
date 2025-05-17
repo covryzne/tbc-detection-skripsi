@@ -22,7 +22,7 @@ interface HistoryRecord {
   patient_address: string | null;
 }
 
-export default function RiwayatPage() {
+export default function HistoryPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [dateRange, setDateRange] = useState("all");
@@ -50,9 +50,8 @@ export default function RiwayatPage() {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        // Log format date dari API
         console.log(
-          "[RiwayatPage] Raw date data:",
+          "[HistoryPage] Raw date data:",
           response.data.map((item: HistoryRecord) => item.date)
         );
         setHistory(response.data);
@@ -62,14 +61,14 @@ export default function RiwayatPage() {
         setLoading(false);
         if (err.response?.status === 500) {
           setError(
-            "Gagal memuat riwayat: Server mengalami masalah. Silakan coba lagi nanti."
+            "Failed to load history: Server encountered an issue. Please try again later."
           );
         } else if (err.response?.status === 403) {
-          setError("Akses ditolak: Hanya admin yang dapat melihat riwayat.");
+          setError("Access denied: Only admins can view history.");
           router.push("/login");
         } else {
           setError(
-            "Gagal memuat riwayat: " + (err.message || "Terjadi kesalahan.")
+            "Failed to load history: " + (err.message || "An error occurred.")
           );
           router.push("/login");
         }
@@ -155,52 +154,29 @@ export default function RiwayatPage() {
     return formatted;
   };
 
-  // Mapping bulan dari Inggris ke Indo
-  const monthMap: { [key: string]: string } = {
-    Jan: "Jan",
-    Feb: "Feb",
-    Mar: "Mar",
-    Apr: "Apr",
-    May: "Mei",
-    Jun: "Jun",
-    Jul: "Jul",
-    Aug: "Agu",
-    Sep: "Sep",
-    Oct: "Okt",
-    Nov: "Nov",
-    Dec: "Des",
-  };
-
   const formatDate = (date: string): string => {
-    // Handle format Mon DD, YYYY HH24:MI
     if (date.match(/^[A-Za-z]{3} \d{2}, \d{4} \d{2}:\d{2}$/)) {
-      return date.replace(
-        /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/,
-        (match) => monthMap[match]
-      );
+      return date;
     }
-    // Handle ISO format (2025-05-15T00:00:00)
     try {
       const parsedDate = new Date(date);
       if (isNaN(parsedDate.getTime())) {
-        return "Tanggal tidak valid";
+        return "Invalid date";
       }
-      return parsedDate
-        .toLocaleString("id-ID", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-        .replace("pukul ", "");
+      return parsedDate.toLocaleString("en-US", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } catch {
-      return "Tanggal tidak valid";
+      return "Invalid date";
     }
   };
 
   if (loading) {
-    return <div className="container mx-auto p-6">Memuat...</div>;
+    return <div className="container mx-auto p-6">Loading...</div>;
   }
 
   if (error) {
@@ -223,7 +199,7 @@ export default function RiwayatPage() {
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
             <div className="flex items-center justify-between mb-6">
-              <h1 className="text-2xl font-bold">Riwayat Deteksi</h1>
+              <h1 className="text-2xl font-bold">Detection History</h1>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
@@ -236,7 +212,7 @@ export default function RiwayatPage() {
                     <input
                       type="text"
                       className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent"
-                      placeholder="Cari berdasarkan ID, pengguna, atau wilayah"
+                      placeholder="Search by ID, user, or region"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
@@ -255,11 +231,11 @@ export default function RiwayatPage() {
                       }
                     }}
                   >
-                    <option value="all">Semua Waktu</option>
-                    <option value="today">Hari Ini</option>
-                    <option value="week">Minggu Ini</option>
-                    <option value="month">Bulan Ini</option>
-                    <option value="custom">Rentang Kustom</option>
+                    <option value="all">All Time</option>
+                    <option value="today">Today</option>
+                    <option value="week">This Week</option>
+                    <option value="month">This Month</option>
+                    <option value="custom">Custom Range</option>
                   </select>
                   {dateRange === "custom" && (
                     <DateRangePicker
@@ -276,9 +252,9 @@ export default function RiwayatPage() {
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
                   >
-                    <option value="all">Semua Hasil</option>
-                    <option value="positive">Positif</option>
-                    <option value="negative">Negatif</option>
+                    <option value="all">All Results</option>
+                    <option value="positive">Positive</option>
+                    <option value="negative">Negative</option>
                   </select>
                 </div>
               </div>
@@ -290,22 +266,22 @@ export default function RiwayatPage() {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        User ID
+                        ID
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        User
+                        Full Name
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Usia
+                        Age
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Tanggal & Waktu
+                        Date & Time
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Wilayah
+                        Region
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Hasil Deteksi
+                        Detection Result
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Confidence
@@ -358,7 +334,7 @@ export default function RiwayatPage() {
                           colSpan={7}
                           className="px-6 py-4 text-center text-sm text-gray-500"
                         >
-                          Tidak ada riwayat prediksi.
+                          No prediction history found.
                         </td>
                       </tr>
                     )}
@@ -368,16 +344,16 @@ export default function RiwayatPage() {
 
               <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
                 <div className="text-sm text-gray-500">
-                  Menampilkan{" "}
+                  Showing{" "}
                   <span className="font-medium">
                     {indexOfFirstItem + 1}-
                     {Math.min(indexOfLastItem, filteredDetections.length)}
                   </span>{" "}
-                  dari{" "}
+                  of{" "}
                   <span className="font-medium">
                     {filteredDetections.length}
                   </span>{" "}
-                  hasil
+                  results
                 </div>
                 <div className="flex-1 flex justify-end">
                   <nav
@@ -389,7 +365,7 @@ export default function RiwayatPage() {
                       disabled={currentPage === 1}
                       className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Sebelumnya
+                      Previous
                     </button>
 
                     {[...Array(totalPages).keys()].map((number) => (
@@ -411,7 +387,7 @@ export default function RiwayatPage() {
                       disabled={currentPage === totalPages}
                       className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Berikutnya
+                      Next
                     </button>
                   </nav>
                 </div>

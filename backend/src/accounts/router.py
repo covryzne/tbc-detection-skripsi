@@ -112,7 +112,7 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
     current_user = json.loads(Authorize.get_jwt_subject())
     logger.debug(f"JWT payload: {current_user}")
 
-    # Ambil data user dari database
+    # Fetch user data from database
     query = User.__table__.select().where(User.id == current_user["id"])
     user = await database.fetch_one(query)
     
@@ -120,20 +120,81 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
         logger.error(f"User not found in database for ID: {current_user['id']}")
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Cast Record ke dict biar aman
+    # Cast Record to dict for safety
     user_dict = dict(user)
     
-    # Format response sesuai frontend
+    # Format response for frontend
     response_data = {
-        "id": str(user_dict["id"]),  # UUID jadi string
+        "id": str(user_dict["id"]),  # UUID to string
         "full_name": user_dict["full_name"],
         "email": user_dict["email"],
-        "phone": user_dict.get("phone"),  # Nullable, pake dict.get()
-        "address": user_dict.get("address"),  # Nullable, pake dict.get()
         "is_admin": user_dict["is_admin"],
-        "created_at": user["created_at"].isoformat()
+        "created_at": user_dict["created_at"].isoformat(),
+        "updated_at": user_dict["updated_at"].isoformat()
     }
     logger.debug(f"Returning user data: {response_data}")
+    return response_data
+
+class PasswordUpdate(BaseModel):
+    password: str
+    confirm_password: str
+
+@router.patch("/users/me")
+async def update_user_password(
+    update_data: PasswordUpdate,
+    Authorize: AuthJWT = Depends()
+):
+    Authorize.jwt_required()
+    current_user = json.loads(Authorize.get_jwt_subject())
+    logger.debug(f"Updating password for user ID: {current_user['id']}")
+
+    # Validate passwords
+    if update_data.password != update_data.confirm_password:
+        logger.error("Passwords do not match")
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    
+    if len(update_data.password) < 6:
+        logger.error("Password too short")
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+
+    # Fetch user from database
+    query = User.__table__.select().where(User.id == current_user["id"])
+    user = await database.fetch_one(query)
+    
+    if not user:
+        logger.error(f"User not found in database for ID: {current_user['id']}")
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Hash new password using passlib
+    hashed_password = hash_password(update_data.password)
+
+    # Update password and updated_at
+    update_query = (
+        User.__table__.update()
+        .where(User.id == current_user["id"])
+        .values(
+            password=hashed_password,
+            updated_at=datetime.now()
+        )
+        .returning(User.__table__)
+    )
+    updated_user = await database.fetch_one(update_query)
+
+    if not updated_user:
+        logger.error(f"Failed to update password for user ID: {current_user['id']}")
+        raise HTTPException(status_code=500, detail="Failed to update password")
+
+    # Format response
+    user_dict = dict(updated_user)
+    response_data = {
+        "id": str(user_dict["id"]),
+        "full_name": user_dict["full_name"],
+        "email": user_dict["email"],
+        "is_admin": user_dict["is_admin"],
+        "created_at": user_dict["created_at"].isoformat(),
+        "updated_at": user_dict["updated_at"].isoformat()
+    }
+    logger.debug(f"Password updated, returning user data: {response_data}")
     return response_data
 
 @router.get("/users/", response_model=List[UserResponse])
@@ -164,7 +225,7 @@ async def get_users(Authorize: AuthJWT = Depends()):
                 "email": user["email"],
                 "is_admin": user["is_admin"],
                 "created_at": user["created_at"].isoformat() if isinstance(user["created_at"], datetime) else user["created_at"],
-                "region": user["address"] or "Tidak diketahui"
+                "region": user["address"] or "Unknown"
             }
             for user in users
         ]

@@ -11,7 +11,7 @@ import {
   IconPlus,
 } from "@tabler/icons-react";
 
-// Interface untuk data user di tabel
+// Interface for user data in table
 interface User {
   id: string;
   name: string;
@@ -20,9 +20,9 @@ interface User {
   createdAt: string;
 }
 
-// Interface untuk form (tambah/edit user)
+// Interface for form (add/edit user)
 interface UserForm extends User {
-  password?: string; // Optional, cuma buat create user
+  password?: string; // Optional, only for creating user
 }
 
 const UserModal: React.FC<{
@@ -38,13 +38,13 @@ const UserModal: React.FC<{
           id: "",
           name: "",
           email: "",
-          region: "Tidak diketahui",
+          region: "Unknown",
           createdAt: "",
           password: "",
         }
   );
 
-  // Reset formData saat user berubah
+  // Reset formData when user changes
   React.useEffect(() => {
     console.log("UserModal received user:", user); // Debug
     setFormData(
@@ -54,7 +54,7 @@ const UserModal: React.FC<{
             id: "",
             name: "",
             email: "",
-            region: "Tidak diketahui",
+            region: "Unknown",
             createdAt: "",
             password: "",
           }
@@ -77,12 +77,12 @@ const UserModal: React.FC<{
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div className="bg-white p-6 rounded-lg w-full max-w-md">
           <h2 className="text-xl font-bold mb-4">
-            {user ? "Edit User" : "Tambah User"}
+            {user ? "Edit User" : "Add User"}
           </h2>
           <form onSubmit={handleSubmit}>
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-700">
-                Nama Lengkap
+                Full Name
               </label>
               <input
                 type="text"
@@ -130,13 +130,13 @@ const UserModal: React.FC<{
                 onClick={onClose}
                 className="px-4 py-2 bg-gray-200 rounded-md"
               >
-                Batal
+                Cancel
               </button>
               <button
                 type="submit"
                 className="px-4 py-2 bg-blue-500 text-white rounded-md"
               >
-                Simpan
+                Save
               </button>
             </div>
           </form>
@@ -164,7 +164,7 @@ const ConfirmDialog: React.FC<{
               onClick={onClose}
               className="px-4 py-2 bg-gray-200 rounded-md"
             >
-              Batal
+              Cancel
             </button>
             <button
               onClick={() => {
@@ -173,7 +173,7 @@ const ConfirmDialog: React.FC<{
               }}
               className="px-4 py-2 bg-red-500 text-white rounded-md"
             >
-              Hapus
+              Delete
             </button>
           </div>
         </div>
@@ -194,7 +194,7 @@ const UsersContent: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const itemsPerPage = 5;
 
-  // Fetch users dari backend
+  // Fetch users from backend
   React.useEffect(() => {
     const fetchUsers = async () => {
       setLoading(true);
@@ -202,7 +202,9 @@ const UsersContent: React.FC = () => {
       try {
         const token = localStorage.getItem("auth_token");
         if (!token) {
-          throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+          throw new Error(
+            "No authentication token found. Please log in again."
+          );
         }
         const response = await fetch("http://localhost:8000/api/v1/users/", {
           headers: {
@@ -211,7 +213,7 @@ const UsersContent: React.FC = () => {
         });
         if (!response.ok) {
           const errorData = await response.json();
-          throw new Error(errorData.detail || "Gagal mengambil data user");
+          throw new Error(errorData.detail || "Failed to fetch user data");
         }
         const data = await response.json();
         console.log("API response:", data); // Debug response
@@ -220,12 +222,12 @@ const UsersContent: React.FC = () => {
             id: user.id,
             name: user.full_name,
             email: user.email,
-            region: user.region || "Tidak diketahui",
+            region: user.region || "Unknown",
             createdAt: user.created_at,
           }))
         );
       } catch (err: any) {
-        setError("Gagal memuat data user: " + err.message);
+        setError("Failed to load user data: " + err.message);
       } finally {
         setLoading(false);
       }
@@ -233,14 +235,14 @@ const UsersContent: React.FC = () => {
     fetchUsers();
   }, []);
 
-  // Format tanggal
+  // Format date
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) {
-        return "Tanggal tidak valid";
+        return "Invalid date";
       }
-      return date.toLocaleDateString("id-ID", {
+      return date.toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
         day: "numeric",
@@ -248,16 +250,16 @@ const UsersContent: React.FC = () => {
         minute: "2-digit",
       });
     } catch {
-      return "Tanggal tidak valid";
+      return "Invalid date";
     }
   };
 
-  // Potong User ID sebelum '-'
+  // Truncate User ID before '-' and convert to uppercase
   const formatUserId = (id: string) => {
-    return id.split("-")[0];
+    return id.toUpperCase().split("-")[0];
   };
 
-  // Filter user
+  // Filter users
   const filteredUsers = usersData.filter(
     (user) =>
       !user.email.startsWith("temp_") &&
@@ -267,7 +269,7 @@ const UsersContent: React.FC = () => {
         user.region.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
-  // Hitung pagination
+  // Calculate pagination
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -277,7 +279,7 @@ const UsersContent: React.FC = () => {
     console.log("Editing user:", user); // Debug
     if (!user.id) {
       console.error("Invalid user ID in handleEdit:", user);
-      setError("Gagal mengedit: ID user tidak valid.");
+      setError("Failed to edit: Invalid user ID.");
       return;
     }
     setEditingUser(user);
@@ -298,11 +300,11 @@ const UsersContent: React.FC = () => {
     console.log("Saving user:", userData); // Debug
     if (editingUser && !userData.id) {
       console.error("No userId provided for update:", userData);
-      setError("Gagal menyimpan: ID user tidak ditemukan.");
+      setError("Failed to save: User ID not found.");
       return;
     }
     if (editingUser) {
-      updateUser(editingUser.id, userData); // Pakai editingUser.id
+      updateUser(editingUser.id, userData); // Use editingUser.id
     } else {
       addUser(userData);
     }
@@ -318,13 +320,13 @@ const UsersContent: React.FC = () => {
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) {
-        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+        throw new Error("No authentication token found. Please log in again.");
       }
       if (!newUser.email.includes("@")) {
-        throw new Error("Email tidak valid.");
+        throw new Error("Invalid email address.");
       }
       if (newUser.password && newUser.password.length < 6) {
-        throw new Error("Password harus minimal 6 karakter.");
+        throw new Error("Password must be at least 6 characters long.");
       }
       const response = await fetch("http://localhost:8000/api/v1/users/", {
         method: "POST",
@@ -347,9 +349,11 @@ const UsersContent: React.FC = () => {
           response.status === 400 &&
           errorData.detail.includes("Email sudah digunakan")
         ) {
-          throw new Error("Email sudah terdaftar. Gunakan email lain.");
+          throw new Error(
+            "Email already registered. Please use a different email."
+          );
         }
-        throw new Error(errorData.detail || "Gagal menambah user");
+        throw new Error(errorData.detail || "Failed to add user");
       }
       const data = await response.json();
       setUsersData([
@@ -358,7 +362,7 @@ const UsersContent: React.FC = () => {
           id: data.id,
           name: data.full_name,
           email: data.email,
-          region: data.region || "Tidak diketahui",
+          region: data.region || "Unknown",
           createdAt: data.created_at,
         },
       ]);
@@ -366,7 +370,8 @@ const UsersContent: React.FC = () => {
     } catch (error: any) {
       console.error("Add user error:", error);
       setError(
-        error.message || "Gagal menambah user. Silakan cek data dan coba lagi."
+        error.message ||
+          "Failed to add user. Please check the data and try again."
       );
     }
   };
@@ -375,14 +380,14 @@ const UsersContent: React.FC = () => {
     console.log("Updating user:", { userId, updatedData }); // Debug
     try {
       if (!userId) {
-        throw new Error("ID user tidak valid.");
+        throw new Error("Invalid user ID.");
       }
       const token = localStorage.getItem("auth_token");
       if (!token) {
-        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+        throw new Error("No authentication token found. Please log in again.");
       }
       if (!updatedData.email.includes("@")) {
-        throw new Error("Email tidak valid.");
+        throw new Error("Invalid email address.");
       }
       const response = await fetch(
         `http://localhost:8000/api/v1/users/${userId}`,
@@ -404,7 +409,7 @@ const UsersContent: React.FC = () => {
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Gagal mengupdate user");
+        throw new Error(errorData.detail || "Failed to update user");
       }
       const data = await response.json();
       setUsersData(
@@ -414,7 +419,7 @@ const UsersContent: React.FC = () => {
                 ...user,
                 name: data.full_name,
                 email: data.email,
-                region: data.region || "Tidak diketahui",
+                region: data.region || "Unknown",
                 createdAt: data.created_at,
               }
             : user
@@ -425,7 +430,7 @@ const UsersContent: React.FC = () => {
       console.error("Update user error:", error);
       setError(
         error.message ||
-          "Gagal mengupdate user. Silakan cek data dan coba lagi."
+          "Failed to update user. Please check the data and try again."
       );
     }
   };
@@ -434,7 +439,7 @@ const UsersContent: React.FC = () => {
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) {
-        throw new Error("Tidak ada token autentikasi. Silakan login ulang.");
+        throw new Error("No authentication token found. Please log in again.");
       }
       const response = await fetch(
         `http://localhost:8000/api/v1/users/${userId}`,
@@ -447,14 +452,15 @@ const UsersContent: React.FC = () => {
       );
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.detail || "Gagal menghapus user");
+        throw new Error(errorData.detail || "Failed to delete user");
       }
       setUsersData(usersData.filter((user) => user.id !== userId));
       setError(null);
     } catch (error: any) {
       console.error("Delete user error:", error);
       setError(
-        error.message || "Gagal menghapus user. Silakan cek data dan coba lagi."
+        error.message ||
+          "Failed to delete user. Please check the data and try again."
       );
     }
   };
@@ -464,7 +470,7 @@ const UsersContent: React.FC = () => {
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
-            <h1 className="text-2xl font-bold mb-6">Users Management</h1>
+            <h1 className="text-2xl font-bold mb-6">User Management</h1>
 
             {error && (
               <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-md">
@@ -473,10 +479,10 @@ const UsersContent: React.FC = () => {
             )}
 
             {loading ? (
-              <div className="text-center py-10">Memuat...</div>
+              <div className="text-center py-10">Loading...</div>
             ) : (
               <>
-                {/* Search dan Actions */}
+                {/* Search and Actions */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
                   <div className="relative w-full md:w-64">
                     <IconSearch
@@ -485,28 +491,24 @@ const UsersContent: React.FC = () => {
                     />
                     <input
                       type="text"
-                      placeholder="Cari user..."
+                      placeholder="Search users..."
                       className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:outline-none focus:ring-2 focus:ring-blue-500"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
                   <div className="flex gap-2">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-md text-gray-700 transition-colors">
-                      <IconFilter size={18} />
-                      <span>Filter</span>
-                    </button>
                     <button
                       onClick={handleAddNew}
                       className="flex items-center gap-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 rounded-md text-white transition-colors"
                     >
                       <IconPlus size={18} />
-                      <span>Tambah User</span>
+                      <span>Add User</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Tabel User */}
+                {/* User Table */}
                 <div className="overflow-x-auto rounded-lg border border-gray-200">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -515,13 +517,13 @@ const UsersContent: React.FC = () => {
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
-                          User ID
+                          ID
                         </th>
                         <th
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
-                          Nama Lengkap
+                          Full Name
                         </th>
                         <th
                           scope="col"
@@ -533,13 +535,13 @@ const UsersContent: React.FC = () => {
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
-                          Dibuat Pada
+                          Joined At
                         </th>
                         <th
                           scope="col"
                           className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
                         >
-                          Aksi
+                          Action
                         </th>
                       </tr>
                     </thead>
@@ -583,9 +585,9 @@ const UsersContent: React.FC = () => {
                 {/* Pagination */}
                 <div className="flex justify-between items-center mt-6">
                   <div className="text-sm text-gray-500">
-                    Menampilkan {indexOfFirstItem + 1} sampai{" "}
-                    {Math.min(indexOfLastItem, filteredUsers.length)} dari{" "}
-                    {filteredUsers.length} user
+                    Showing {indexOfFirstItem + 1} to{" "}
+                    {Math.min(indexOfLastItem, filteredUsers.length)} of{" "}
+                    {filteredUsers.length} users
                   </div>
                   <div className="flex space-x-2">
                     <button
@@ -681,8 +683,8 @@ const UsersContent: React.FC = () => {
                   isOpen={isConfirmOpen}
                   onClose={() => setIsConfirmOpen(false)}
                   onConfirm={confirmDelete}
-                  title="Hapus User"
-                  message={`Apakah Anda yakin ingin menghapus ${userToDelete?.name}? Aksi ini tidak dapat dibatalkan.`}
+                  title="Delete User"
+                  message={`Are you sure you want to delete ${userToDelete?.name}? This action cannot be undone.`}
                 />
               </>
             )}

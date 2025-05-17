@@ -10,7 +10,7 @@ import {
   Save,
   X,
   Calendar,
-  AlertCircle,
+  Lock,
 } from "lucide-react";
 import {
   Card,
@@ -19,8 +19,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import axios from "@/lib/axios";
+import { toast } from "sonner";
 
 interface UserData {
   id: string;
@@ -30,6 +41,7 @@ interface UserData {
   phone: string;
   address: string;
   joinDate: string;
+  passwordLastChanged: string;
 }
 
 export default function ProfilePage() {
@@ -43,9 +55,14 @@ export default function ProfilePage() {
     phone: "",
     address: "",
     joinDate: "",
+    passwordLastChanged: "",
   });
   const [tempUserData, setTempUserData] = useState<UserData>({ ...userData });
   const [error, setError] = useState<string | null>(null);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchUserAndProfile() {
@@ -53,17 +70,16 @@ export default function ProfilePage() {
       setError(null);
       try {
         const token = localStorage.getItem("auth_token");
-        console.log("Token from localStorage:", token);
-        console.log("Cookies:", document.cookie);
+        if (!token) {
+          throw new Error("No authentication token found");
+        }
 
         const userResponse = await axios.get("/api/v1/users/me");
-        console.log("User response:", userResponse.data);
         const user = userResponse.data;
 
         const profileResponse = await axios.get(
           "/api/v1/users/me/profile-details"
         );
-        console.log("Profile response:", profileResponse.data);
         const profile = profileResponse.data;
 
         if (!user.id) {
@@ -78,7 +94,18 @@ export default function ProfilePage() {
           phone: profile.phone || "",
           address: profile.address || "",
           joinDate: user.created_at
-            ? new Date(user.created_at).toISOString().split("T")[0]
+            ? new Date(user.created_at).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
+            : "Unknown",
+          passwordLastChanged: user.updated_at
+            ? new Date(user.updated_at).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })
             : "Unknown",
         };
         setUserData(newUserData);
@@ -118,12 +145,10 @@ export default function ProfilePage() {
         phone: tempUserData.phone,
         address: tempUserData.address,
       };
-      console.log("Payload sent:", payload);
       const response = await axios.patch(
         "/api/v1/users/me/profile-details",
         payload
       );
-      console.log("Save response:", response.data);
       setUserData({
         ...tempUserData,
         name: response.data.full_name,
@@ -132,12 +157,82 @@ export default function ProfilePage() {
         address: response.data.address || "",
       });
       setIsEditing(false);
+      toast.success("Profile updated successfully", {
+        description: "Your personal information has been saved.",
+      });
     } catch (error) {
       console.error("Error saving profile:", error);
       const errorMsg =
         error instanceof Error ? error.message : "Failed to save profile data";
-      alert(`Error saving profile: ${errorMsg}`);
+      toast.error("Failed to update profile", {
+        description: errorMsg,
+      });
     }
+  };
+
+  const handlePasswordChange = async () => {
+    setPasswordError(null);
+
+    if (!newPassword || newPassword.length < 6) {
+      setPasswordError("Password must be at least 6 characters long");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords do not match");
+      return;
+    }
+
+    try {
+      const payload = {
+        password: newPassword,
+        confirm_password: confirmPassword,
+      };
+      const response = await axios.patch("/api/v1/users/me", payload);
+      const updatedUser = response.data;
+
+      setUserData({
+        ...userData,
+        name: updatedUser.full_name,
+        email: updatedUser.email,
+        passwordLastChanged: updatedUser.updated_at
+          ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : userData.passwordLastChanged,
+      });
+      setTempUserData({
+        ...tempUserData,
+        name: updatedUser.full_name,
+        email: updatedUser.email,
+        passwordLastChanged: updatedUser.updated_at
+          ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })
+          : tempUserData.passwordLastChanged,
+      });
+      setNewPassword("");
+      setConfirmPassword("");
+      setIsPasswordDialogOpen(false);
+      toast.success("Password changed successfully", {
+        description: "Your new password has been set.",
+      });
+    } catch (error) {
+      console.error("Error changing password:", error);
+      const errorMsg =
+        error instanceof Error ? error.message : "Failed to change password";
+      setPasswordError(errorMsg);
+      toast.error("Failed to change password", {
+        description: errorMsg,
+      });
+    }
+  };
+
+  const formatUserId = (id: string) => {
+    return id.toUpperCase().split("-")[0];
   };
 
   if (isLoading) return <div>Loading...</div>;
@@ -238,6 +333,17 @@ export default function ProfilePage() {
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            User ID
+                          </label>
+                          <div className="flex items-center">
+                            <User className="h-5 w-5 text-gray-400 mr-2" />
+                            <span className="text-gray-800">
+                              {formatUserId(userData.id)}
+                            </span>
+                          </div>
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Full Name
@@ -349,11 +455,8 @@ export default function ProfilePage() {
                         {[
                           {
                             title: "Password",
-                            status: "Last changed 30 days ago",
-                            lastUpdated: "2025-04-05",
-                            icon: (
-                              <AlertCircle className="h-5 w-5 text-yellow-500" />
-                            ),
+                            status: `Last changed ${userData.passwordLastChanged}`,
+                            icon: <Lock className="h-5 w-5 text-yellow-500" />,
                           },
                         ].map((setting, index) => (
                           <div
@@ -371,10 +474,11 @@ export default function ProfilePage() {
                                 </div>
                               </div>
                             </div>
-                            <button className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800">
-                              {setting.title === "Password"
-                                ? "Change"
-                                : "Configure"}
+                            <button
+                              onClick={() => setIsPasswordDialogOpen(true)}
+                              className="px-3 py-1 text-sm text-blue-600 hover:text-blue-800"
+                            >
+                              Change
                             </button>
                           </div>
                         ))}
@@ -387,6 +491,57 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Password Change Dialog */}
+      <Dialog
+        open={isPasswordDialogOpen}
+        onOpenChange={setIsPasswordDialogOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="newPassword">New Password</Label>
+              <Input
+                id="newPassword"
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter new password"
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm new password"
+              />
+            </div>
+            {passwordError && (
+              <div className="text-red-600 text-sm">{passwordError}</div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsPasswordDialogOpen(false);
+                setNewPassword("");
+                setConfirmPassword("");
+                setPasswordError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handlePasswordChange}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

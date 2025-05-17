@@ -62,12 +62,12 @@ export const RecentActivity = ({
               <tr>
                 {hasUserId && (
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                    User ID
+                    ID
                   </th>
                 )}
                 {hasUser && (
                   <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
-                    User
+                    Full Name
                   </th>
                 )}
                 <th className="px-4 py-2 text-left text-sm font-medium text-gray-500">
@@ -133,7 +133,7 @@ export const RecentActivity = ({
           <div className="mt-4 text-right">
             <div className="flex justify-center">
               <Button onClick={onShowAllClick} variant="outline" size="sm">
-                Tampilkan Semua Aktivitas
+                Show All Activity
               </Button>
             </div>
           </div>

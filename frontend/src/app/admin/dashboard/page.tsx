@@ -25,7 +25,7 @@ function DashboardContent({ onShowAllClick }: { onShowAllClick: () => void }) {
   if (loading) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center p-4">
-        <p>Memuat dashboard...</p>
+        <p>Loading</p>
       </div>
     );
   }
@@ -51,7 +51,7 @@ function DashboardContent({ onShowAllClick }: { onShowAllClick: () => void }) {
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
-            <h1 className="text-2xl font-bold mb-6">Selamat Datang, Admin!</h1>
+            <h1 className="text-2xl font-bold mb-6">Welcome, Admin!</h1>
             <DashboardSummary summaryData={data.summaryCards} />
             <DashboardCharts
               detectionData={data.detectionData}
@@ -60,8 +60,8 @@ function DashboardContent({ onShowAllClick }: { onShowAllClick: () => void }) {
             <RecentActivity
               activityData={data.recentActivity}
               onShowAllClick={onShowAllClick}
-              title="Aktivitas Deteksi Terakhir"
-              description="Pemindaian deteksi TB terbaru di sistem"
+              title="Recent Detection Activity"
+              description="Latest TB detection scans in the system"
             />
           </div>
         </div>
