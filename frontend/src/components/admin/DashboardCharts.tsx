@@ -47,15 +47,15 @@ export const DashboardCharts = ({
         <CardHeader>
           <CardTitle>TB Detection Trend</CardTitle>
           <CardDescription>
-            Monthly trend of TB detections and positive cases
+            Monthly trend of TB detections and positive cases (last 6 months)
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={detectionData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                data={[...detectionData].reverse()} // Membalik urutan data agar bulan/tahun terbaru di kanan
+                margin={{ top: 5, right: 40, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="month" />
@@ -94,7 +94,7 @@ export const DashboardCharts = ({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={regionalData}
-                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="region" />

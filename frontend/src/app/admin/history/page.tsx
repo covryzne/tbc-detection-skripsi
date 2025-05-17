@@ -56,7 +56,12 @@ export default function HistoryPage() {
           "[HistoryPage] Raw date data:",
           response.data.map((item: HistoryRecord) => item.date)
         );
-        setHistory(response.data);
+        // Sort data berdasarkan date, terbaru dulu
+        const sortedHistory = response.data.sort(
+          (a: HistoryRecord, b: HistoryRecord) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+        setHistory(sortedHistory);
         setLoading(false);
       } catch (err: any) {
         console.error("Error fetching history:", err);

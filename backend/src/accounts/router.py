@@ -604,29 +604,24 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
             logger.debug("Running detection_data_query")
             raw_query = """
                 SELECT
-                    to_char(created_at, 'Mon') AS month,
+                    to_char(created_at, 'Mon YYYY') AS month,
                     COUNT(*) AS detections,
                     SUM(CASE WHEN result = 'Positive' THEN 1 ELSE 0 END) AS positives
                 FROM patient_records
-                GROUP BY to_char(created_at, 'Mon')
+                WHERE created_at >= NOW() - INTERVAL '6 months'
+                GROUP BY to_char(created_at, 'Mon YYYY'), date_trunc('month', created_at)
+                ORDER BY date_trunc('month', created_at) DESC
+                LIMIT 6
             """
             detection_data = await database.fetch_all(raw_query)
-            month_order = {
-                "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-                "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
-            }
-            detection_data = sorted(
-                [
-                    {
-                        "month": row["month"],
-                        "detections": row["detections"],
-                        "positives": row["positives"],
-                    }
-                    for row in detection_data
-                ],
-                key=lambda x: month_order.get(x["month"], 0),
-                reverse=True
-            )[:6]
+            detection_data = [
+                {
+                    "month": row["month"],
+                    "detections": row["detections"],
+                    "positives": row["positives"],
+                }
+                for row in detection_data
+            ]
             logger.debug(f"Detection data: {detection_data}")
 
             # 7. Regional Data
@@ -655,54 +650,121 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
 
             # 8. Trends
             logger.debug("Running trend queries")
-            prev_month_detections_query = (
-                select(func.count())
-                .select_from(records)
-                .where(
-                    (records.c.created_at >= datetime.now() - timedelta(days=60)) &
-                    (records.c.created_at < datetime.now() - timedelta(days=30))
+
+            # Helper function untuk hitung trend
+            def calculate_trend(current_val, prev_val, metric_name):
+                if prev_val > 0:
+                    growth_percentage = ((current_val - prev_val) / prev_val * 100)
+                    return f"{growth_percentage:+.1f}% from last month"
+                elif current_val > 0:
+                    return f"New {metric_name} this month"
+                else:
+                    return f"No {metric_name} this month"
+
+            # Query untuk deteksi
+            current_month_detections_query = """
+                SELECT COUNT(*)
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta')
+            """
+            prev_month_detections_query = """
+                SELECT COUNT(*)
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 month')
+            """
+
+            # Query untuk kasus positif
+            current_month_positives_query = """
+                SELECT COUNT(*)
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta')
+                      AND result = 'Positive'
+            """
+            prev_month_positives_query = """
+                SELECT COUNT(*)
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 month')
+                      AND result = 'Positive'
+            """
+
+            # Query untuk user aktif
+            current_month_users_query = """
+                SELECT COUNT(*)
+                FROM users
+                WHERE is_active = TRUE
+                      AND date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                          date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta')
+            """
+            prev_month_users_query = """
+                SELECT COUNT(*)
+                FROM users
+                WHERE is_active = TRUE
+                      AND date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                          date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 month')
+            """
+
+            # Query untuk inference time
+            current_month_inference_query = """
+                SELECT AVG(
+                    CAST(
+                        REGEXP_REPLACE(TRIM(inference_time), '\s*ms$', '') AS NUMERIC
+                    )
                 )
-            )
-            prev_month_detections = await database.fetch_val(prev_month_detections_query)
-            detections_trend = (
-                f"+{((total_detections - prev_month_detections) / prev_month_detections * 100):.1f}% from last month"
-                if prev_month_detections > 0
-                else "+0% from last month"
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta')
+                      AND inference_time IS NOT NULL
+            """
+            prev_month_inference_query = """
+                SELECT AVG(
+                    CAST(
+                        REGEXP_REPLACE(TRIM(inference_time), '\s*ms$', '') AS NUMERIC
+                    )
+                )
+                FROM patient_records
+                WHERE date_trunc('month', created_at AT TIME ZONE 'Asia/Jakarta') =
+                      date_trunc('month', NOW() AT TIME ZONE 'Asia/Jakarta' - INTERVAL '1 month')
+                      AND inference_time IS NOT NULL
+            """
+
+            # Eksekusi query
+            current_month_detections = await database.fetch_val(current_month_detections_query) or 0
+            prev_month_detections = await database.fetch_val(prev_month_detections_query) or 0
+            current_month_positives = await database.fetch_val(current_month_positives_query) or 0
+            prev_month_positives = await database.fetch_val(prev_month_positives_query) or 0
+            current_month_users = await database.fetch_val(current_month_users_query) or 0
+            prev_month_users = await database.fetch_val(prev_month_users_query) or 0
+            current_month_inference = await database.fetch_val(current_month_inference_query) or 0
+            prev_month_inference = await database.fetch_val(prev_month_inference_query) or 0
+
+            # Hitung trend
+            detections_trend = calculate_trend(current_month_detections, prev_month_detections, "detections")
+            positives_trend = calculate_trend(current_month_positives, prev_month_positives, "positive cases")
+            users_trend = calculate_trend(current_month_users, prev_month_users, "active users")
+            inference_trend = (
+                f"{((current_month_inference - prev_month_inference) / prev_month_inference * 100):+.1f}% from last month"
+                if prev_month_inference > 0 and current_month_inference > 0
+                else "New inference data this month" if current_month_inference > 0
+                else "No inference data this month"
             )
 
-            prev_month_positives_query = (
-                select(func.count())
-                .select_from(records)
-                .where(
-                    (records.c.created_at >= datetime.now() - timedelta(days=60)) &
-                    (records.c.created_at < datetime.now() - timedelta(days=30)) &
-                    (records.c.result == "Positive")
-                )
-            )
-            prev_month_positives = await database.fetch_val(prev_month_positives_query)
-            positives_trend = (
-                f"+{((positive_cases - prev_month_positives) / prev_month_positives * 100):.1f}% from last month"
-                if prev_month_positives > 0
-                else "+0% from last month"
-            )
-
-            prev_month_users_query = (
-                select(func.count())
-                .select_from(User.__table__)
-                .where(
-                    (User.is_active == True) &
-                    (User.created_at >= datetime.now() - timedelta(days=60)) &
-                    (User.created_at < datetime.now() - timedelta(days=30))
-                )
-            )
-            prev_month_users = await database.fetch_val(prev_month_users_query)
-            users_trend = (
-                f"+{((active_users - prev_month_users) / prev_month_users * 100):.1f}% from last month"
-                if prev_month_users > 0
-                else "+0% from last month"
-            )
-
-            inference_trend = "+5% from last month"
+            # Logging
+            logger.debug(f"Current month detections: {current_month_detections}")
+            logger.debug(f"Prev month detections: {prev_month_detections}")
+            logger.debug(f"Detections trend: {detections_trend}")
+            logger.debug(f"Current month positives: {current_month_positives}")
+            logger.debug(f"Prev month positives: {prev_month_positives}")
+            logger.debug(f"Positives trend: {positives_trend}")
+            logger.debug(f"Current month users: {current_month_users}")
+            logger.debug(f"Prev month users: {prev_month_users}")
+            logger.debug(f"Users trend: {users_trend}")
+            logger.debug(f"Current month inference: {current_month_inference}")
+            logger.debug(f"Prev month inference: {prev_month_inference}")
+            logger.debug(f"Inference trend: {inference_trend}")
 
             return {
                 "fullName": full_name,
