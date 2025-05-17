@@ -352,6 +352,12 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
     is_admin = current_user["is_admin"]
 
     try:
+        # Ambil full_name dari tabel users
+        user_query = select(User.full_name).where(User.id == user_id)
+        full_name = await database.fetch_val(user_query)
+        if not full_name:
+            full_name = "User"  # Fallback kalau full_name null
+
         # Data buat User dan Admin
         # 1. Total Detections
         logger.debug("Running total_detections_query")
@@ -567,6 +573,7 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
             inference_trend = "+5% from last month"
 
             return {
+                "fullName": full_name,
                 "summaryCards": [
                     {
                         "title": "Total Detections",
@@ -613,6 +620,7 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
                 else "0%"
             )
             return {
+                "fullName": full_name,
                 "summaryCards": [
                     {
                         "title": "Total Predictions",

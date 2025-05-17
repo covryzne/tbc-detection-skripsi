@@ -6,6 +6,8 @@ import axios from "@/lib/axios";
 import { Search, Calendar, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { IconDownload } from "@tabler/icons-react";
+import Papa from "papaparse";
 
 interface HistoryRecord {
   id: string;
@@ -175,6 +177,59 @@ export default function HistoryPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      if (filteredDetections.length === 0) {
+        alert("No data to export!");
+        return;
+      }
+
+      // Convert data ke CSV
+      const csv = Papa.unparse({
+        fields: [
+          "ID",
+          "Full Name",
+          "Age",
+          "Date & Time",
+          "Region",
+          "Detection Result",
+          "Confidence",
+        ],
+        data: filteredDetections.map((item: HistoryRecord) => [
+          item.patient_id.toUpperCase().includes("-")
+            ? item.patient_id.toUpperCase().split("-")[0].slice(0, 9)
+            : item.patient_id.toUpperCase().slice(0, 9),
+          item.patient_name,
+          item.patient_age || "-",
+          formatDate(item.date),
+          item.patient_address || "Tidak diketahui",
+          item.result,
+          formatConfidence(item.confidence),
+        ]),
+      });
+
+      // Buat file blob dan trigger download
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `admin_detection_history_${new Date()
+          .toISOString()
+          .slice(0, 16)
+          .replace("T", "_")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting to CSV:", error);
+      alert("Failed to export data to CSV");
+    }
+  };
+
   if (loading) {
     return <div className="container mx-auto p-6">Loading...</div>;
   }
@@ -200,6 +255,10 @@ export default function HistoryPage() {
           <div className="px-4 lg:px-6">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold">Detection History</h1>
+              <Button variant="outline" size="sm" onClick={handleExport}>
+                <IconDownload className="h-4 w-4 mr-1" />
+                Export
+              </Button>
             </div>
 
             <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-4 mb-6">
@@ -310,7 +369,7 @@ export default function HistoryPage() {
                             {formatDate(detection.date)}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {detection.patient_address || "-"}
+                            {detection.patient_address || "Tidak diketahui"}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

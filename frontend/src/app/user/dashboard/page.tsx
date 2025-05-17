@@ -27,6 +27,7 @@ interface ActivityData {
 }
 
 interface DashboardData {
+  fullName: string;
   summaryCards: SummaryCardData[];
   recentActivity: ActivityData[];
 }
@@ -107,7 +108,9 @@ export default function UserDashboard() {
       <div className="@container/main flex flex-1 flex-col gap-2">
         <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
           <div className="px-4 lg:px-6">
-            <h1 className="text-2xl font-bold mb-6">Selamat Datang, User!</h1>
+            <h1 className="text-2xl font-bold mb-6">
+              Welcome, {data.fullName}!
+            </h1>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               {data.summaryCards.map((card, index) => (
                 <SummaryCard
@@ -124,8 +127,8 @@ export default function UserDashboard() {
             <RecentActivity
               activityData={data.recentActivity}
               onShowAllClick={handleShowAllActivity}
-              title="Aktivitas Terbaru Anda"
-              description="Hasil deteksi TB terbaru Anda"
+              title="Your Recent Activity"
+              description="Your latest TB detection result"
             />
           </div>
         </div>

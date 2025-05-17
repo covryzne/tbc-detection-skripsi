@@ -6,6 +6,8 @@ import { IconDownload } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import axios from "@/lib/axios";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { format, parse } from "date-fns";
+import Papa from "papaparse";
 
 interface Detection {
   id: string;
@@ -29,14 +31,42 @@ export default function RiwayatPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchDetections = async () => {
+  const fetchDetections = async (forExport = false) => {
     setIsLoading(true);
     setError(null);
     try {
+      const params: any = {
+        page: forExport ? 1 : currentPage,
+        limit: forExport ? undefined : itemsPerPage,
+        export_all: forExport,
+      };
+      if (searchTerm) params.search = searchTerm;
+      if (statusFilter !== "all") params.status = statusFilter;
+      if (
+        dateRange === "custom" &&
+        customDateRange.from &&
+        customDateRange.to
+      ) {
+        params.date_from = format(customDateRange.from, "yyyy-MM-dd");
+        params.date_to = format(customDateRange.to, "yyyy-MM-dd");
+      } else if (dateRange === "today") {
+        const today = new Date();
+        params.date_from = format(today, "yyyy-MM-dd");
+        params.date_to = format(today, "yyyy-MM-dd");
+      } else if (dateRange === "week") {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        params.date_from = format(oneWeekAgo, "yyyy-MM-dd");
+      } else if (dateRange === "month") {
+        const oneMonthAgo = new Date();
+        oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+        params.date_from = format(oneMonthAgo, "yyyy-MM-dd");
+      }
+
       const response = await axios.get("/api/v1/patient-records/me", {
-        params: {
-          page: currentPage,
-          limit: itemsPerPage,
+        params,
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("auth_token")}`,
         },
       });
       console.log("Detections response:", response.data);
@@ -44,13 +74,16 @@ export default function RiwayatPage() {
       setTotalItems(
         parseInt(response.headers["x-total-count"]) || response.data.length
       );
-    } catch (error) {
+      return response.data;
+    } catch (error: any) {
       console.error("Error fetching detections:", error);
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load detection history"
-      );
+      const errorMessage = error.response?.data?.detail
+        ? `Failed to load detection history: ${JSON.stringify(
+            error.response.data.detail
+          )}`
+        : error.message || "Failed to load detection history";
+      setError(errorMessage);
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -58,7 +91,43 @@ export default function RiwayatPage() {
 
   useEffect(() => {
     fetchDetections();
-  }, [currentPage]);
+  }, [currentPage, searchTerm, statusFilter, dateRange, customDateRange]);
+
+  const handleExport = async () => {
+    try {
+      const data = await fetchDetections(true);
+      if (data.length === 0) {
+        alert("No data to export!");
+        return;
+      }
+
+      const csv = Papa.unparse({
+        fields: ["ID", "Date & Time", "Detection Result", "Confidence"],
+        data: data.map((item: Detection) => [
+          item.id,
+          item.dateTime,
+          item.result,
+          item.confidence,
+        ]),
+      });
+
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `detection_history_${format(new Date(), "yyyy-MM-dd_HH-mm")}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error exporting to CSV:", error);
+      alert("Failed to export data to CSV");
+    }
+  };
 
   const filteredDetections = detections.filter((detection) => {
     const matchesSearch = detection.result
@@ -72,7 +141,17 @@ export default function RiwayatPage() {
       (statusFilter === "negative" &&
         detection.result.toLowerCase() === "negative");
 
-    const detectionDate = new Date(detection.dateTime);
+    let detectionDate: Date;
+    try {
+      detectionDate = parse(
+        detection.dateTime,
+        "MMM dd, yyyy HH:mm",
+        new Date()
+      );
+    } catch (e) {
+      console.error("Error parsing date:", detection.dateTime, e);
+      return false;
+    }
     const now = new Date();
     let matchesDate = true;
 
@@ -120,11 +199,7 @@ export default function RiwayatPage() {
           <div className="px-4 lg:px-6">
             <div className="flex items-center justify-between mb-6">
               <h1 className="text-2xl font-bold">History Detection</h1>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => alert("Export tunda dulu!")}
-              >
+              <Button variant="outline" size="sm" onClick={handleExport}>
                 <IconDownload className="h-4 w-4 mr-1" />
                 Export
               </Button>
@@ -143,11 +218,11 @@ export default function RiwayatPage() {
                     }
                   }}
                 >
-                  <option value="all">Semua Waktu</option>
-                  <option value="today">Hari Ini</option>
-                  <option value="week">Minggu Ini</option>
-                  <option value="month">Bulan Ini</option>
-                  <option value="custom">Rentang Kustom</option>
+                  <option value="all">All Time</option>
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="custom">Custom Range</option>
                 </select>
                 {dateRange === "custom" && (
                   <DateRangePicker
@@ -164,9 +239,9 @@ export default function RiwayatPage() {
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
                 >
-                  <option value="all">Semua Hasil</option>
-                  <option value="positive">Positif</option>
-                  <option value="negative">Negatif</option>
+                  <option value="all">All Results</option>
+                  <option value="positive">Positive</option>
+                  <option value="negative">Negative</option>
                 </select>
               </div>
             </div>
@@ -189,34 +264,53 @@ export default function RiwayatPage() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {currentItems.length > 0 ? (
-                      currentItems.map((detection) => (
-                        <tr key={detection.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {detection.dateTime}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                detection.result === "Positive"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-green-100 text-green-800"
-                              }`}
-                            >
-                              {detection.result}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {detection.confidence}
-                          </td>
-                        </tr>
-                      ))
+                      currentItems.map((detection) => {
+                        let formattedDateTime = detection.dateTime;
+                        try {
+                          const parsedDate = parse(
+                            detection.dateTime,
+                            "MMM dd, yyyy HH:mm",
+                            new Date()
+                          );
+                          formattedDateTime = format(
+                            parsedDate,
+                            "MMM dd, yyyy HH:mm"
+                          );
+                        } catch (e) {
+                          console.error(
+                            "Error formatting date:",
+                            detection.dateTime
+                          );
+                        }
+                        return (
+                          <tr key={detection.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formattedDateTime}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  detection.result === "Positive"
+                                    ? "bg-red-100 text-red-800"
+                                    : "bg-green-100 text-green-800"
+                                }`}
+                              >
+                                {detection.result}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {detection.confidence}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
                         <td
                           colSpan={3}
                           className="px-6 py-4 text-center text-sm text-gray-500"
                         >
-                          Tidak ada riwayat prediksi.
+                          No prediction history available.
                         </td>
                       </tr>
                     )}
@@ -226,12 +320,12 @@ export default function RiwayatPage() {
 
               <div className="px-6 py-4 flex items-center justify-between border-t border-gray-200">
                 <div className="text-sm text-gray-500">
-                  Menampilkan{" "}
+                  Showing{" "}
                   <span className="font-medium">
                     {indexOfFirstItem + 1}-
                     {Math.min(indexOfLastItem, totalItems)}
                   </span>{" "}
-                  dari <span className="font-medium">{totalItems}</span> hasil
+                  of <span className="font-medium">{totalItems}</span> results
                 </div>
                 <div className="flex-1 flex justify-end">
                   <nav
@@ -243,7 +337,7 @@ export default function RiwayatPage() {
                       disabled={currentPage === 1}
                       className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Sebelumnya
+                      Previous
                     </button>
 
                     {[...Array(totalPages).keys()].map((number) => (
@@ -265,7 +359,7 @@ export default function RiwayatPage() {
                       disabled={currentPage === totalPages}
                       className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
                     >
-                      Berikutnya
+                      Next
                     </button>
                   </nav>
                 </div>

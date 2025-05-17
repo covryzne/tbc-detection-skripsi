@@ -9,6 +9,7 @@ from sqlalchemy.sql import cast, func
 from sqlalchemy.types import String
 from sqlalchemy import select
 from pydantic import BaseModel
+import pytz
 
 from .models import patients, Patient, records, PatientRecord
 from src.accounts.models import User
@@ -311,19 +312,23 @@ async def create_patient(patient_id: str, patient_record: PatientRecordCreate, A
 async def get_user_patient_records(
     search: Optional[str] = None,
     status: Optional[str] = None,
-    date_from: Optional[str] = None,  # Ubah ke str
-    date_to: Optional[str] = None,    # Ubah ke str
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
     page: int = 1,
     limit: int = 8,
+    export_all: bool = False,
     Authorize: AuthJWT = Depends()
 ):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
     user_id = current_user["id"]
-    logger.debug(f"Fetching patient records for user: {user_id}")
+    logger.debug(f"Fetching patient records for user: {user_id}, export_all: {export_all}, params: {{search: {search}, status: {status}, date_from: {date_from}, date_to: {date_to}, page: {page}, limit: {limit}}}")
 
     try:
-        # Query dengan join
+        # Set WIB timezone
+        wib = pytz.timezone("Asia/Jakarta")
+
+        # Query with join
         query = (
             select(PatientRecord.__table__)
             .join(Patient, Patient.id == PatientRecord.patient_id)
@@ -333,10 +338,12 @@ async def get_user_patient_records(
 
         # Filter search
         if search:
+            logger.debug(f"Applying search filter: {search}")
             query = query.where(PatientRecord.result.ilike(f"%{search}%"))
 
         # Filter status
         if status in ("positive", "negative"):
+            logger.debug(f"Applying status filter: {status}")
             query = query.where(PatientRecord.result == status.capitalize())
 
         # Filter date range
@@ -345,41 +352,106 @@ async def get_user_patient_records(
         if date_from:
             try:
                 parsed_date_from = datetime.strptime(date_from, "%Y-%m-%d")
-                query = query.where(PatientRecord.date >= parsed_date_from)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Format date_from harus YYYY-MM-DD")
+                logger.debug(f"Applying date_from filter: {parsed_date_from}")
+                query = query.where(PatientRecord.created_at >= parsed_date_from)
+            except ValueError as e:
+                logger.error(f"Invalid date_from format: {date_from}, error: {str(e)}")
+                raise HTTPException(status_code=400, detail="Format date_from must be YYYY-MM-DD")
         if date_to:
             try:
                 parsed_date_to = datetime.strptime(date_to, "%Y-%m-%d")
-                query = query.where(PatientRecord.date <= parsed_date_to)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="Format date_to harus YYYY-MM-DD")
+                logger.debug(f"Applying date_to filter: {parsed_date_to}")
+                query = query.where(PatientRecord.created_at <= parsed_date_to)
+            except ValueError as e:
+                logger.error(f"Invalid date_to format: {date_to}, error: {str(e)}")
+                raise HTTPException(status_code=400, detail="Format date_to must be YYYY-MM-DD")
 
-        # Hitung total item
+        # Count total items
         count_query = query.with_only_columns(func.count()).order_by(None)
         total_items = await database.fetch_val(count_query)
+        logger.debug(f"Total items: {total_items}")
 
-        # Pagination
-        offset = (page - 1) * limit
-        query = query.offset(offset).limit(limit)
+        # Pagination (skip kalau export_all=true)
+        if not export_all:
+            offset = (page - 1) * limit
+            query = query.offset(offset).limit(limit)
 
-        # Eksekusi query
+        # Execute query
         records = await database.fetch_all(query)
+        logger.debug(f"Fetched {len(records)} records")
 
-        # Format response
-        response = [
-            {
-                "id": str(record["id"]),
-                "dateTime": record["date"].strftime("%b %d, %Y %H:%M"),
-                "result": record["result"],
-                "confidence": f"{record['confidence']}%"
-            }
-            for record in records
-        ]
+        # Format response with WIB timezone
+        response = []
+        for record in records:
+            try:
+                response.append({
+                    "id": str(record["id"]),
+                    "dateTime": record["created_at"].astimezone(wib).strftime("%b %d, %Y %H:%M"),
+                    "result": record["result"],
+                    "confidence": f"{float(record['confidence'])}%"
+                })
+            except Exception as e:
+                logger.error(f"Error formatting record {record['id']}: {str(e)}")
+                raise HTTPException(status_code=422, detail=f"Error formatting record {record['id']}: {str(e)}")
 
-        # Tambah header X-Total-Count
+        # Add X-Total-Count header
         headers = {"X-Total-Count": str(total_items)}
+        logger.debug(f"Returning response with {len(response)} records")
         return Response(content=json.dumps(response), media_type="application/json", headers=headers)
     except Exception as e:
         logger.error(f"Error fetching patient records: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
+        raise HTTPException(status_code=500, detail=f"Server error occurred: {str(e)}")
+
+@router.post("/patient-records", response_model=PatientRecordResponse)
+async def create_patient_record(
+    request: PredictionSaveRequest,
+    Authorize: AuthJWT = Depends()
+):
+    Authorize.jwt_required()
+    try:
+        wib = pytz.timezone("Asia/Jakarta")
+        # Parse date from request, expect format with time
+        try:
+            record_date = datetime.strptime(request.date, "%Y-%m-%d %H:%M:%S").replace(tzinfo=wib)
+        except ValueError:
+            # Fallback to current time if date format invalid
+            record_date = datetime.now(wib)
+            logger.warning(f"Invalid date format in request: {request.date}, using current time")
+
+        # Create patient record
+        patient_record = {
+            "id": uuid.uuid4(),
+            "date": record_date,
+            "result": request.status,
+            "confidence": str(request.confidence),
+            "patient_id": request.userId,  # Adjust based on your schema
+            "image_path": request.fileName,
+            "inference_time": request.analyzedAt,
+            "created_at": datetime.now(wib)  # Explicitly set created_at
+        }
+
+        # Insert to database
+        query = PatientRecord.__table__.insert().values(**patient_record)
+        await database.execute(query)
+
+        # Fetch created record for response
+        query = select(PatientRecord.__table__).where(PatientRecord.id == patient_record["id"])
+        record = await database.fetch_one(query)
+
+        return {
+            "id": str(record["id"]),
+            "date": record["date"].astimezone(wib).strftime("%b %d, %Y %H:%M"),
+            "result": record["result"],
+            "confidence": f"{record['confidence']}%",
+            "patient_id": str(record["patient_id"]),
+            "image_path": record["image_path"],
+            "inference_time": record["inference_time"],
+            "patient_name": None,  # Adjust based on your join logic
+            "patient_age": None,
+            "patient_gender": None,
+            "patient_phone": None,
+            "patient_address": None
+        }
+    except Exception as e:
+        logger.error(f"Error creating patient record: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create patient record.")
