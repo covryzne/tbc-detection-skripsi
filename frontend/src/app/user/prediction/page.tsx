@@ -13,6 +13,7 @@ export default function PrediksiPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("x-ray");
   const [userData, setUserData] = useState<{
+    userId: string | Blob;
     id: string;
     full_name: string;
     email: string;
@@ -87,21 +88,53 @@ export default function PrediksiPage() {
   };
 
   const handleAnalyzeRequest = async (file: File) => {
+    // console.log("handleAnalyzeRequest called with file:", file.name);
+    // console.log("userData:", userData);
+    // console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
     if (!userData) {
-      toast.error("User data not loaded. Please try again.");
+      // console.log("No userData, showing toast");
+      toast.error("Harap masukkan data terlebih dahulu", {
+        description: "Silakan tambahkan user sebelum melakukan analisis.",
+      });
       return null;
     }
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("userId", userData.userId);
       formData.append("type", activeTab);
+      const requestId = Math.random().toString(36).substring(7);
+      // console.log(`Sending API request [${requestId}]`);
 
-      const response = await axios.post("/api/v1/predict", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await fetch(
+        process.env.NEXT_PUBLIC_API_URL + "/api/v1/predict",
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            "Cache-Control": "no-cache",
+          },
+        }
+      );
 
-      const result = response.data;
+      // console.log(`API Response Status [${requestId}]:`, response.status);
+      const result = await response.json();
+      // console.log(`API Response [${requestId}]:`, result);
+      // console.log(
+      //   `Raw Confidence Type [${requestId}]:`,
+      //   typeof result.predictions.confidence
+      // );
+      // console.log(
+      //   `Raw Confidence Value [${requestId}]:`,
+      //   result.predictions.confidence
+      // );
+
+      if (!response.ok) {
+        throw new Error(
+          result.error || `HTTP error! status: ${response.status}`
+        );
+      }
 
       let status: "positive" | "negative" | "error";
       const className = result.predictions.class_name.toLowerCase();
@@ -113,42 +146,53 @@ export default function PrediksiPage() {
         throw new Error(`Unexpected class_name: ${className}`);
       }
 
-      const confidence = Math.min(
-        parseFloat(result.predictions.confidence.toFixed(2)) * 100,
-        100
-      );
+      // Ambil confidence langsung dari backend dengan validasi
+      let confidence = 0;
+      const rawConfidence = result.predictions.confidence;
+      if (typeof rawConfidence === "number") {
+        // Langsung pake kalau number, asumsikan persen (99.88)
+        confidence = Math.min(Math.max(rawConfidence, 0), 100); // Clamp 0-100
+      } else if (typeof rawConfidence === "string") {
+        // Handle kalau string (misalnya dari DB atau API salah format)
+        const parsed = parseFloat(rawConfidence);
+        if (!isNaN(parsed)) {
+          confidence = parsed >= 1 ? parsed : parsed * 100; // Handle persen atau probabilitas
+          confidence = Math.min(Math.max(confidence, 0), 100);
+        } else {
+          console.warn(`Invalid confidence string: ${rawConfidence}`);
+        }
+      } else {
+        console.warn(
+          `Unexpected confidence type: ${typeof rawConfidence}, value: ${rawConfidence}`
+        );
+      }
+      console.log(`Processed Confidence [${requestId}]:`, confidence);
+
+      // Handle inference_time dengan aman
+      const inferenceTime = result.inference_time || "N/A";
 
       return {
         status,
         confidence,
-        details: `Inference time: ${result.inference_time}`,
+        details: `Inference time: ${inferenceTime}`,
         fileName: file.name,
-        date: new Date().toLocaleDateString("en-US", {
-          month: "2-digit",
-          day: "2-digit",
-          year: "numeric",
-        }),
+        date: new Date().toLocaleDateString(),
         fileSize: file.size,
         fileType: file.type,
         analyzedAt: new Date().toISOString(),
       };
-    } catch (err: any) {
-      const errorMsg =
-        err.response?.data?.detail || err.message || "Failed to analyze file";
-      console.error("Error analyzing file:", err);
+    } catch (err) {
+      console.error("Error in handleAnalyzeRequest:", err);
       toast.error("Gagal menganalisis file", {
-        description: errorMsg,
+        description: err instanceof Error ? err.message : "Unknown error",
       });
       return {
         status: "error",
         confidence: 0,
-        details: errorMsg,
+        details:
+          err instanceof Error ? err.message : "Failed to analyze the sample.",
         fileName: file.name,
-        date: new Date().toLocaleDateString("en-US", {
-          month: "2-digit",
-          day: "2-digit",
-          year: "numeric",
-        }),
+        date: new Date().toLocaleDateString(),
       };
     }
   };

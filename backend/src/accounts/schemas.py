@@ -58,8 +58,8 @@ class TempUserRequest(BaseModel):
     
     @validator('gender')
     def validate_gender(cls, v):
-        if v is not None and v not in ["Male", "Female", "Other"]:
-            raise ValueError('Gender harus Male atau Female atau Other')
+        if v is not None and v not in ["male", "female", "other"]:
+            raise ValueError('Gender harus male atau female atau other')
         return v
 
 class UserProfileUpdate(BaseModel):

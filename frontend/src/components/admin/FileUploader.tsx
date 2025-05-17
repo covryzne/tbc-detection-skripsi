@@ -131,6 +131,24 @@ export function FileUploader({
     }
   };
 
+  // RGB
+  // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = e.target.files?.[0] || null;
+  //   if (file) {
+  //     setSelectedFile(file);
+  //     const reader = new FileReader();
+  //     reader.onload = () => {
+  //       setPreview(reader.result as string);
+  //     };
+  //     reader.readAsDataURL(file);
+  //     onFileChange(file);
+  //   } else {
+  //     setSelectedFile(null);
+  //     setPreview(null);
+  //     onFileChange(null);
+  //   }
+  // };
+
   const clearFile = () => {
     setSelectedFile(null);
     setPreview(null);

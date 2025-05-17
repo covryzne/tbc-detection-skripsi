@@ -604,11 +604,11 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
             logger.debug("Running detection_data_query")
             raw_query = """
                 SELECT
-                    to_char(date, 'Mon') AS month,
+                    to_char(created_at, 'Mon') AS month,
                     COUNT(*) AS detections,
                     SUM(CASE WHEN result = 'Positive' THEN 1 ELSE 0 END) AS positives
                 FROM patient_records
-                GROUP BY to_char(date, 'Mon')
+                GROUP BY to_char(created_at, 'Mon')
             """
             detection_data = await database.fetch_all(raw_query)
             month_order = {

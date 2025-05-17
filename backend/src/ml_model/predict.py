@@ -33,7 +33,7 @@ def transform_image(image_bytes):
     my_transforms = transforms.Compose(
         [
             transforms.Grayscale(num_output_channels=1),
-            transforms.Resize(255),
+            transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             transforms.Normalize([0.5], [0.5]),
@@ -46,15 +46,23 @@ def transform_image(image_bytes):
 def sigmoid(x):
     return 1.0 / (1.0 + np.exp(-x))
 
+# def sigmoid_with_temperature(x, T=1.0):
+#     return 1.0 / (1.0 + np.exp(-x / T))
+
 
 def get_prediction(image_bytes):
     img = transform_image(image_bytes=image_bytes)
     ort_inputs = {ort_session.get_inputs()[0].name: to_numpy(img)}
     ort_outs = ort_session.run(None, ort_inputs)
+    print("Logits:", ort_outs[0])
 
     img_out = sigmoid(ort_outs[0])
+    print("Probabilitas:", img_out[0])
+    # img_out = sigmoid_with_temperature(ort_outs[0], T=2.0)
+    # print("Probabilitas (T=2):", img_out[0])
     predicted_idx = np.argmax(img_out[0])
     confidence = float(f"{float(img_out[0][predicted_idx]) * 100:.2f}")
+    print(f"Backend Confidence: {confidence}%")
     return class_names[predicted_idx], confidence
 
 
@@ -62,6 +70,7 @@ def get_result(image_file, is_api=False):
     start_time = datetime.datetime.now()
     image_bytes = image_file.file.read()
     class_name, confidence = get_prediction(image_bytes)
+    print(f"get_result Confidence: {confidence}")
 
     if not is_api:
         # Convert to grayscale for preview

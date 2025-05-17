@@ -258,7 +258,11 @@ export default function PrediksiPage() {
 
   // Panggilan API ke /api/v1/predict
   const handleAnalyzeRequest = async (file: File) => {
+    // console.log("handleAnalyzeRequest called with file:", file.name);
+    // console.log("userData:", userData);
+    // console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
     if (!userData) {
+      // console.log("No userData, showing toast");
       toast.error("Harap masukkan data terlebih dahulu", {
         description: "Silakan tambahkan user sebelum melakukan analisis.",
       });
@@ -270,16 +274,31 @@ export default function PrediksiPage() {
       formData.append("file", file);
       formData.append("userId", userData.userId);
       formData.append("type", activeTab);
+      const requestId = Math.random().toString(36).substring(7);
+      // console.log(`Sending API request [${requestId}]`);
 
       const response = await fetch(
         process.env.NEXT_PUBLIC_API_URL + "/api/v1/predict",
         {
           method: "POST",
           body: formData,
+          headers: {
+            "Cache-Control": "no-cache",
+          },
         }
       );
 
+      // console.log(`API Response Status [${requestId}]:`, response.status);
       const result = await response.json();
+      // console.log(`API Response [${requestId}]:`, result);
+      // console.log(
+      //   `Raw Confidence Type [${requestId}]:`,
+      //   typeof result.predictions.confidence
+      // );
+      // console.log(
+      //   `Raw Confidence Value [${requestId}]:`,
+      //   result.predictions.confidence
+      // );
 
       if (!response.ok) {
         throw new Error(
@@ -297,15 +316,35 @@ export default function PrediksiPage() {
         throw new Error(`Unexpected class_name: ${className}`);
       }
 
-      const confidence = Math.min(
-        parseFloat(result.predictions.confidence.toFixed(2)),
-        100
-      );
+      // Ambil confidence langsung dari backend dengan validasi
+      let confidence = 0;
+      const rawConfidence = result.predictions.confidence;
+      if (typeof rawConfidence === "number") {
+        // Langsung pake kalau number, asumsikan persen (99.88)
+        confidence = Math.min(Math.max(rawConfidence, 0), 100); // Clamp 0-100
+      } else if (typeof rawConfidence === "string") {
+        // Handle kalau string (misalnya dari DB atau API salah format)
+        const parsed = parseFloat(rawConfidence);
+        if (!isNaN(parsed)) {
+          confidence = parsed >= 1 ? parsed : parsed * 100; // Handle persen atau probabilitas
+          confidence = Math.min(Math.max(confidence, 0), 100);
+        } else {
+          console.warn(`Invalid confidence string: ${rawConfidence}`);
+        }
+      } else {
+        console.warn(
+          `Unexpected confidence type: ${typeof rawConfidence}, value: ${rawConfidence}`
+        );
+      }
+      console.log(`Processed Confidence [${requestId}]:`, confidence);
+
+      // Handle inference_time dengan aman
+      const inferenceTime = result.inference_time || "N/A";
 
       return {
         status,
         confidence,
-        details: `Inference time: ${result.inference_time}`,
+        details: `Inference time: ${inferenceTime}`,
         fileName: file.name,
         date: new Date().toLocaleDateString(),
         fileSize: file.size,
@@ -313,11 +352,9 @@ export default function PrediksiPage() {
         analyzedAt: new Date().toISOString(),
       };
     } catch (err) {
-      console.error("Error analyzing file:", err);
+      console.error("Error in handleAnalyzeRequest:", err);
       toast.error("Gagal menganalisis file", {
-        description:
-          (err instanceof Error ? err.message : "Unknown error") ||
-          "Terjadi kesalahan saat menganalisis. Silakan coba lagi.",
+        description: err instanceof Error ? err.message : "Unknown error",
       });
       return {
         status: "error",
@@ -389,10 +426,12 @@ export default function PrediksiPage() {
                                   </td>
                                   <td className="py-2">
                                     {userData.gender === "male"
-                                      ? "Laki-laki"
+                                      ? "Male"
                                       : userData.gender === "female"
-                                      ? "Perempuan"
-                                      : "Tidak Disebut"}
+                                      ? "Female"
+                                      : userData.gender === "other"
+                                      ? "Other"
+                                      : ""}
                                   </td>
                                 </tr>
                               )}
@@ -500,9 +539,9 @@ export default function PrediksiPage() {
                             <SelectValue placeholder="Select gender (optional)" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="male">Laki-laki</SelectItem>
-                            <SelectItem value="female">Perempuan</SelectItem>
-                            <SelectItem value="other">Tidak Disebut</SelectItem>
+                            <SelectItem value="male">Male</SelectItem>
+                            <SelectItem value="female">Female</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

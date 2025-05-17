@@ -14,11 +14,11 @@ const axios = Axios.create({
 axios.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("auth_token");
-    console.log("Token:", token);
-    console.log(
-      "Authorization Header:",
-      token ? `Bearer ${token}` : "No token"
-    );
+    // console.log("Token:", token);
+    // console.log(
+    //   "Authorization Header:",
+    //   token ? `Bearer ${token}` : "No token"
+    // );
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,7 +31,7 @@ axios.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      console.log("Unauthorized, redirecting to login...");
+      // console.log("Unauthorized, redirecting to login...");
       localStorage.removeItem("auth_token");
       localStorage.removeItem("user");
       window.location.href = "/login";

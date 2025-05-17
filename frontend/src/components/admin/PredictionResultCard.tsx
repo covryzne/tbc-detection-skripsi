@@ -34,12 +34,6 @@ export function PredictionResultCard({
   onSaveResult,
   isSaved = false,
 }: PredictionResultProps) {
-  console.log("PredictionResultCard props:", {
-    userId,
-    onSaveResult,
-    result,
-    isSaved,
-  }); // Tambah logging
   if (!result) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 space-y-2">

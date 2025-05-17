@@ -72,10 +72,11 @@ export function PredictionAnalyzer({
     try {
       if (onAnalyzeRequested) {
         const resultData = await onAnalyzeRequested(selectedFile);
+        // console.log("Result Data in PredictionAnalyzer:", resultData);
         setResult(resultData);
       }
     } catch (error) {
-      console.error("Analysis failed:", error);
+      // console.error("Analysis failed:", error);
       setResult({
         status: "error",
         confidence: 0,
