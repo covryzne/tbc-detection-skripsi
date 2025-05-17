@@ -9,9 +9,9 @@ from sqlalchemy.sql.sqltypes import TIMESTAMP
 from src.database import Base
 
 class GenderType(enum.Enum):
-    male = "male"
-    female = "female"
-    other = "other"
+    male = "Male"
+    female = "Female"
+    other = "Other"
 
 class Patient(Base):
     __tablename__ = "patients"

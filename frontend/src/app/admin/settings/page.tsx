@@ -65,7 +65,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchUserAndProfile() {
+    async function fetchUserAndPatient() {
       setIsLoading(true);
       setError(null);
       try {
@@ -74,13 +74,26 @@ export default function ProfilePage() {
           throw new Error("No authentication token found");
         }
 
+        // Fetch user data
         const userResponse = await axios.get("/api/v1/users/me");
         const user = userResponse.data;
 
-        const profileResponse = await axios.get(
-          "/api/v1/users/me/profile-details"
-        );
-        const profile = profileResponse.data;
+        // Fetch patient data with fallback
+        let patient = {
+          name: user.full_name,
+          phone: "",
+          address: "Tidak diketahui",
+        };
+        try {
+          const patientResponse = await axios.get("/api/v1/patients/me");
+          patient = patientResponse.data;
+        } catch (patientError) {
+          console.warn(
+            "Failed to fetch patient data, using fallback:",
+            patientError
+          );
+          // Fallback to user.full_name and default address
+        }
 
         if (!user.id) {
           throw new Error("User ID not found in response");
@@ -88,11 +101,11 @@ export default function ProfilePage() {
 
         const newUserData = {
           id: user.id || "Unknown",
-          name: user.full_name || "Unknown",
+          name: patient.name || user.full_name || "Unknown",
           email: user.email || "Unknown",
           role: user.is_admin ? "Administrator" : "User",
-          phone: profile.phone || "",
-          address: profile.address || "",
+          phone: patient.phone || "",
+          address: patient.address || "Tidak diketahui",
           joinDate: user.created_at
             ? new Date(user.created_at).toLocaleDateString("en-US", {
                 year: "numeric",
@@ -111,7 +124,7 @@ export default function ProfilePage() {
         setUserData(newUserData);
         setTempUserData(newUserData);
       } catch (error) {
-        console.error("Error fetching user/profile:", error);
+        console.error("Error fetching user/patient:", error);
         setError(
           error instanceof Error ? error.message : "Failed to load profile data"
         );
@@ -119,7 +132,7 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     }
-    fetchUserAndProfile();
+    fetchUserAndPatient();
   }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,22 +152,29 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const payload = {
-        full_name: tempUserData.name,
-        email: tempUserData.email,
+      // Update patient data (name, phone, address)
+      const patientPayload = {
+        name: tempUserData.name,
         phone: tempUserData.phone,
         address: tempUserData.address,
       };
-      const response = await axios.patch(
-        "/api/v1/users/me/profile-details",
-        payload
+      const patientResponse = await axios.patch(
+        "/api/v1/patients/me",
+        patientPayload
       );
+
+      // Update user data (email)
+      const userPayload = {
+        email: tempUserData.email,
+      };
+      const userResponse = await axios.patch("/api/v1/users/me", userPayload);
+
       setUserData({
         ...tempUserData,
-        name: response.data.full_name,
-        email: response.data.email,
-        phone: response.data.phone || "",
-        address: response.data.address || "",
+        name: patientResponse.data.name,
+        phone: patientResponse.data.phone || "",
+        address: patientResponse.data.address || "",
+        email: userResponse.data.email,
       });
       setIsEditing(false);
       toast.success("Profile updated successfully", {
@@ -192,7 +212,6 @@ export default function ProfilePage() {
 
       setUserData({
         ...userData,
-        name: updatedUser.full_name,
         email: updatedUser.email,
         passwordLastChanged: updatedUser.updated_at
           ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {
@@ -204,7 +223,6 @@ export default function ProfilePage() {
       });
       setTempUserData({
         ...tempUserData,
-        name: updatedUser.full_name,
         email: updatedUser.email,
         passwordLastChanged: updatedUser.updated_at
           ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {

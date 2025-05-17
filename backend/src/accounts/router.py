@@ -3,8 +3,8 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException, Depends, Response, status
 from fastapi_jwt_auth import AuthJWT
-from pydantic import BaseModel
-from typing import List
+from pydantic import BaseModel, validator
+from typing import Optional, List
 from sqlalchemy import func, case, and_, extract, select, cast, Numeric, Integer
 from sqlalchemy.sql.expression import not_
 from datetime import datetime, timedelta
@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 from .models import User, UserProfile
 from src.database import database
 from src.patients.models import Patient, PatientRecord
-from .schemas import UserCreate, UserResponse, UserLogin, TempUserRequest, UserProfileUpdate
+from .schemas import UserCreate, UserResponse, UserLogin, TempUserRequest, UserProfileUpdate, UserUpdate, PatientProfileResponse, PatientProfileUpdate
 from .security import hash_password
 
 router = APIRouter()
@@ -135,54 +135,67 @@ async def get_current_user(Authorize: AuthJWT = Depends()):
     logger.debug(f"Returning user data: {response_data}")
     return response_data
 
-class PasswordUpdate(BaseModel):
-    password: str
-    confirm_password: str
-
 @router.patch("/users/me")
-async def update_user_password(
-    update_data: PasswordUpdate,
+async def update_user(
+    update_data: UserUpdate,
     Authorize: AuthJWT = Depends()
 ):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
-    logger.debug(f"Updating password for user ID: {current_user['id']}")
-
-    # Validate passwords
-    if update_data.password != update_data.confirm_password:
-        logger.error("Passwords do not match")
-        raise HTTPException(status_code=400, detail="Passwords do not match")
-    
-    if len(update_data.password) < 6:
-        logger.error("Password too short")
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters long")
+    user_id = current_user["id"]
+    logger.debug(f"Updating user for ID: {user_id}, payload: {update_data.dict()}")
 
     # Fetch user from database
-    query = User.__table__.select().where(User.id == current_user["id"])
+    query = User.__table__.select().where(User.id == user_id)
     user = await database.fetch_one(query)
     
     if not user:
-        logger.error(f"User not found in database for ID: {current_user['id']}")
+        logger.error(f"User not found in database for ID: {user_id}")
         raise HTTPException(status_code=404, detail="User not found")
 
-    # Hash new password using passlib
-    hashed_password = hash_password(update_data.password)
+    # Prepare update data
+    update_dict = update_data.dict(exclude_unset=True)
+    if not update_dict:
+        logger.debug(f"No fields to update for user ID: {user_id}")
+        user_dict = dict(user)
+        return {
+            "id": str(user_dict["id"]),
+            "full_name": user_dict["full_name"],
+            "email": user_dict["email"],
+            "is_admin": user_dict["is_admin"],
+            "created_at": user_dict["created_at"].isoformat(),
+            "updated_at": user_dict["updated_at"].isoformat()
+        }
 
-    # Update password and updated_at
+    # Validate email uniqueness
+    if "email" in update_dict and update_dict["email"] != user["email"]:
+        email_query = User.__table__.select().where(User.email == update_dict["email"])
+        existing_user = await database.fetch_one(email_query)
+        if existing_user:
+            logger.error(f"Email {update_dict['email']} already in use")
+            raise HTTPException(status_code=400, detail="Email sudah digunakan")
+
+    # Handle password update
+    if "password" in update_dict:
+        hashed_password = hash_password(update_dict["password"])
+        update_dict["password"] = hashed_password
+        del update_dict["confirm_password"]  # Remove confirm_password from update
+
+    # Set updated_at
+    update_dict["updated_at"] = func.now()
+
+    # Update user
     update_query = (
         User.__table__.update()
-        .where(User.id == current_user["id"])
-        .values(
-            password=hashed_password,
-            updated_at=datetime.now()
-        )
+        .where(User.id == user_id)
+        .values(**update_dict)
         .returning(User.__table__)
     )
     updated_user = await database.fetch_one(update_query)
 
     if not updated_user:
-        logger.error(f"Failed to update password for user ID: {current_user['id']}")
-        raise HTTPException(status_code=500, detail="Failed to update password")
+        logger.error(f"Failed to update user for ID: {user_id}")
+        raise HTTPException(status_code=500, detail="Failed to update user")
 
     # Format response
     user_dict = dict(updated_user)
@@ -194,8 +207,127 @@ async def update_user_password(
         "created_at": user_dict["created_at"].isoformat(),
         "updated_at": user_dict["updated_at"].isoformat()
     }
-    logger.debug(f"Password updated, returning user data: {response_data}")
+    logger.debug(f"User updated, returning user data: {response_data}")
     return response_data
+
+
+@router.get("/patients/me", response_model=PatientProfileResponse)
+async def get_patient_profile(Authorize: AuthJWT = Depends()):
+    Authorize.jwt_required()
+    current_user = json.loads(Authorize.get_jwt_subject())
+    user_id = current_user["id"]
+    logger.debug(f"Fetching patient profile for user_id: {user_id}")
+
+    try:
+        # Fetch user to get full_name
+        user_query = User.__table__.select().where(User.id == user_id)
+        user = await database.fetch_one(user_query)
+        if not user:
+            logger.error(f"No user found for user_id: {user_id}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Fetch patient profile
+        query = patients.select().where(patients.c.user_id == user_id)
+        patient = await database.fetch_one(query)
+
+        # If no patient record, create one
+        if not patient:
+            logger.debug(f"No patient record found for user_id: {user_id}, creating new patient")
+            patient_data = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "name": user["full_name"] or "Unknown",
+                "address": "Tidak diketahui",
+                "age": None,
+                "gender": None,
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+            }
+            insert_query = patients.insert().values(**patient_data).returning(patients)
+            patient = await database.fetch_one(insert_query)
+            logger.debug(f"Created patient record for user_id: {user_id}, patient_id: {patient['id']}")
+
+        response = {
+            "name": patient["name"],
+            "phone": patient["phone"],
+            "address": patient["address"],
+            "age": patient["age"],
+            "gender": patient["gender"].value if patient["gender"] is not None else None,
+        }
+        logger.debug(f"Patient profile fetched: {response}")
+        return response
+    except Exception as e:
+        logger.error(f"Error fetching patient profile: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error fetching profile: {str(e)}")
+
+@router.patch("/patients/me", response_model=PatientProfileResponse)
+async def update_patient_profile(update: PatientProfileUpdate, Authorize: AuthJWT = Depends()):
+    Authorize.jwt_required()
+    current_user = json.loads(Authorize.get_jwt_subject())
+    user_id = current_user["id"]
+    logger.debug(f"Updating patient profile for user_id: {user_id}, payload: {update.dict()}")
+
+    try:
+        # Fetch user to get full_name
+        user_query = User.__table__.select().where(User.id == user_id)
+        user = await database.fetch_one(user_query)
+        if not user:
+            logger.error(f"No user found for user_id: {user_id}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Fetch patient profile
+        query = patients.select().where(patients.c.user_id == user_id)
+        patient = await database.fetch_one(query)
+
+        # If no patient record, create one
+        if not patient:
+            logger.debug(f"No patient record found for user_id: {user_id}, creating new patient")
+            patient_data = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "name": user["full_name"] or "Unknown",
+                "address": "Tidak diketahui",
+                "age": None,
+                "gender": None,
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+            }
+            insert_query = patients.insert().values(**patient_data).returning(patients)
+            patient = await database.fetch_one(insert_query)
+            logger.debug(f"Created patient record for user_id: {user_id}, patient_id: {patient['id']}")
+
+        # Update patient profile
+        update_data = update.dict(exclude_unset=True)
+        if update_data:
+            update_data["updated_at"] = func.now()
+            query = (
+                patients.update()
+                .where(patients.c.user_id == user_id)
+                .values(**update_data)
+                .returning(patients)
+            )
+            updated_patient = await database.fetch_one(query)
+
+            response = {
+                "name": updated_patient["name"],
+                "phone": updated_patient["phone"],
+                "address": updated_patient["address"],
+                "age": updated_patient["age"],
+                "gender": updated_patient["gender"].value if updated_patient["gender"] is not None else None,
+            }
+            logger.debug(f"Patient profile updated: {response}")
+            return response
+        else:
+            return {
+                "name": patient["name"],
+                "phone": patient["phone"],
+                "address": patient["address"],
+                "age": patient["age"],
+                "gender": patient["gender"].value if patient["gender"] is not None else None,
+            }
+    except Exception as e:
+        logger.error(f"Error updating patient profile: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
 
 @router.get("/users/", response_model=List[UserResponse])
 async def get_users(Authorize: AuthJWT = Depends()):
@@ -645,106 +777,113 @@ async def get_dashboard_data(Authorize: AuthJWT = Depends()):
         logger.error(f"Error fetching dashboard data: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server")
 
-@router.get("/users/me/profile-details")
-async def get_profile_details(Authorize: AuthJWT = Depends()):
+@router.get("/patients/me", response_model=PatientProfileResponse)
+async def get_patient_profile(Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
     user_id = current_user["id"]
-    logger.debug(f"Fetching profile details for user: {user_id}")
+    logger.debug(f"Fetching patient profile for user_id: {user_id}")
 
     try:
-        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
-        profile = await database.fetch_one(query)
-        if not profile:
-            return {"phone": None, "address": None}
-        return {
-            "phone": profile["phone"],
-            "address": profile["address"]
+        # Fetch user to get full_name
+        user_query = select(User.full_name).where(User.id == user_id)
+        user = await database.fetch_one(user_query)
+        if not user:
+            logger.error(f"No user found for user_id: {user_id}")
+            raise HTTPException(status_code=404, detail="User not found")
+
+        # Fetch patient profile
+        query = patients.select().where(patients.c.user_id == user_id)
+        patient = await database.fetch_one(query)
+
+        # If no patient record, create one
+        if not patient:
+            logger.debug(f"No patient record found for user_id: {user_id}, creating new patient")
+            patient_data = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "name": user["full_name"] or "Unknown",
+                "address": "Tidak diketahui",
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+            }
+            insert_query = patients.insert().values(**patient_data).returning(patients)
+            patient = await database.fetch_one(insert_query)
+            logger.debug(f"Created patient record for user_id: {user_id}, patient_id: {patient['id']}")
+
+        response = {
+            "name": patient["name"],
+            "phone": patient["phone"],
+            "address": patient["address"],
         }
+        logger.debug(f"Patient profile fetched: {response}")
+        return response
     except Exception as e:
-        logger.error(f"Error fetching profile details: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
+        logger.error(f"Error fetching patient profile: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error fetching profile: {str(e)}")
 
-@router.patch("/users/me/profile-details")
-async def update_profile_details(profile: UserProfileUpdate, Authorize: AuthJWT = Depends()):
+@router.patch("/patients/me", response_model=PatientProfileResponse)
+async def update_patient_profile(update: PatientProfileUpdate, Authorize: AuthJWT = Depends()):
     Authorize.jwt_required()
     current_user = json.loads(Authorize.get_jwt_subject())
     user_id = current_user["id"]
-    logger.debug(f"Updating profile details for user: {user_id}")
+    logger.debug(f"Updating patient profile for user_id: {user_id}, payload: {update.dict()}")
 
     try:
-        # Cek apakah user ada
-        query = User.__table__.select().where(User.id == user_id)
-        existing_user = await database.fetch_one(query)
-        if not existing_user:
-            raise HTTPException(status_code=404, detail="User tidak ditemukan")
+        # Fetch user to get full_name
+        user_query = select(User.full_name).where(User.id == user_id)
+        user = await database.fetch_one(user_query)
+        if not user:
+            logger.error(f"No user found for user_id: {user_id}")
+            raise HTTPException(status_code=404, detail="User not found")
 
-        # Validasi email unik
-        if profile.email is not None:
-            query = User.__table__.select().where(User.email == profile.email, User.id != user_id)
-            if await database.fetch_one(query):
-                raise HTTPException(status_code=400, detail="Email sudah digunakan")
+        # Fetch patient profile
+        query = patients.select().where(patients.c.user_id == user_id)
+        patient = await database.fetch_one(query)
 
-        # Update users table
-        user_update_data = {}
-        if profile.full_name is not None:
-            user_update_data["full_name"] = profile.full_name
-        if profile.email is not None:
-            user_update_data["email"] = profile.email
-        if user_update_data:
-            user_update_data["updated_at"] = func.now()
+        # If no patient record, create one
+        if not patient:
+            logger.debug(f"No patient record found for user_id: {user_id}, creating new patient")
+            patient_data = {
+                "id": str(uuid.uuid4()),
+                "user_id": user_id,
+                "name": user["full_name"] or "Unknown",
+                "address": "Tidak diketahui",
+                "created_at": datetime.now(),
+                "updated_at": datetime.now(),
+            }
+            insert_query = patients.insert().values(**patient_data).returning(patients)
+            patient = await database.fetch_one(insert_query)
+            logger.debug(f"Created patient record for user_id: {user_id}, patient_id: {patient['id']}")
+
+        # Update patient profile
+        update_data = update.dict(exclude_unset=True)
+        if update_data:
+            update_data["updated_at"] = func.now()
             query = (
-                User.__table__.update()
-                .where(User.id == user_id)
-                .values(**user_update_data)
+                patients.update()
+                .where(patients.c.user_id == user_id)
+                .values(**update_data)
+                .returning(patients)
             )
-            await database.execute(query)
-            logger.debug(f"Updated user data for user: {user_id}")
+            updated_patient = await database.fetch_one(query)
 
-        # Update user_profiles table
-        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
-        existing_profile = await database.fetch_one(query)
-
-        profile_update_data = {}
-        if profile.phone is not None:
-            profile_update_data["phone"] = profile.phone
-        if profile.address is not None:
-            profile_update_data["address"] = profile.address
-
-        if profile_update_data:
-            profile_update_data["updated_at"] = func.now()
-            if existing_profile:
-                query = (
-                    UserProfile.__table__.update()
-                    .where(UserProfile.user_id == user_id)
-                    .values(**profile_update_data)
-                )
-                await database.execute(query)
-                logger.debug(f"Updated existing profile for user: {user_id}")
-            else:
-                query = (
-                    UserProfile.__table__.insert()
-                    .values(user_id=user_id, **profile_update_data)
-                )
-                await database.execute(query)
-                logger.debug(f"Created new profile for user: {user_id}")
-
-        # Ambil data terbaru
-        query = User.__table__.select().where(User.id == user_id)
-        updated_user = await database.fetch_one(query)
-        query = UserProfile.__table__.select().where(UserProfile.user_id == user_id)
-        updated_profile = await database.fetch_one(query)
-
-        return {
-            "message": "Profile details updated successfully",
-            "full_name": updated_user["full_name"],
-            "email": updated_user["email"],
-            "phone": updated_profile["phone"] if updated_profile else None,
-            "address": updated_profile["address"] if updated_profile else None
-        }
+            response = {
+                "name": updated_patient["name"],
+                "phone": updated_patient["phone"],
+                "address": updated_patient["address"],
+            }
+            logger.debug(f"Patient profile updated: {response}")
+            return response
+        else:
+            return {
+                "name": patient["name"],
+                "phone": patient["phone"],
+                "address": patient["address"],
+            }
     except Exception as e:
-        logger.error(f"Error updating profile details: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Terjadi kesalahan pada server.")
+        logger.error(f"Error updating patient profile: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error updating profile: {str(e)}")
 
 @router.post("/logout")
 async def logout(response: Response):

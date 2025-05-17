@@ -11,6 +11,7 @@ import {
   X,
   Calendar,
   Lock,
+  Hash,
 } from "lucide-react";
 import {
   Card,
@@ -40,6 +41,8 @@ interface UserData {
   role: string;
   phone: string;
   address: string;
+  age: number | null;
+  gender: string | null;
   joinDate: string;
   passwordLastChanged: string;
 }
@@ -54,6 +57,8 @@ export default function ProfilePage() {
     role: "",
     phone: "",
     address: "",
+    age: null,
+    gender: null,
     joinDate: "",
     passwordLastChanged: "",
   });
@@ -65,7 +70,7 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function fetchUserAndProfile() {
+    async function fetchUserAndPatient() {
       setIsLoading(true);
       setError(null);
       try {
@@ -74,13 +79,27 @@ export default function ProfilePage() {
           throw new Error("No authentication token found");
         }
 
+        // Fetch user data
         const userResponse = await axios.get("/api/v1/users/me");
         const user = userResponse.data;
 
-        const profileResponse = await axios.get(
-          "/api/v1/users/me/profile-details"
-        );
-        const profile = profileResponse.data;
+        // Fetch patient data with fallback
+        let patient = {
+          name: user.full_name,
+          phone: "",
+          address: "Tidak diketahui",
+          age: null,
+          gender: null,
+        };
+        try {
+          const patientResponse = await axios.get("/api/v1/patients/me");
+          patient = patientResponse.data;
+        } catch (patientError) {
+          console.warn(
+            "Failed to fetch patient data, using fallback:",
+            patientError
+          );
+        }
 
         if (!user.id) {
           throw new Error("User ID not found in response");
@@ -88,11 +107,13 @@ export default function ProfilePage() {
 
         const newUserData = {
           id: user.id || "Unknown",
-          name: user.full_name || "Unknown",
+          name: patient.name || user.full_name || "Unknown",
           email: user.email || "Unknown",
           role: user.is_admin ? "Administrator" : "User",
-          phone: profile.phone || "",
-          address: profile.address || "",
+          phone: patient.phone || "",
+          address: patient.address || "Tidak diketahui",
+          age: patient.age ?? null,
+          gender: patient.gender ?? null,
           joinDate: user.created_at
             ? new Date(user.created_at).toLocaleDateString("en-US", {
                 year: "numeric",
@@ -111,7 +132,7 @@ export default function ProfilePage() {
         setUserData(newUserData);
         setTempUserData(newUserData);
       } catch (error) {
-        console.error("Error fetching user/profile:", error);
+        console.error("Error fetching user/patient:", error);
         setError(
           error instanceof Error ? error.message : "Failed to load profile data"
         );
@@ -119,14 +140,23 @@ export default function ProfilePage() {
         setIsLoading(false);
       }
     }
-    fetchUserAndProfile();
+    fetchUserAndPatient();
   }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     setTempUserData({
       ...tempUserData,
-      [name as keyof UserData]: value,
+      [name as keyof UserData]:
+        name === "age"
+          ? value
+            ? parseInt(value)
+            : null
+          : name === "gender"
+          ? value || null
+          : value,
     });
   };
 
@@ -139,22 +169,75 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     try {
-      const payload = {
-        full_name: tempUserData.name,
-        email: tempUserData.email,
+      // Validasi age di frontend
+      if (
+        tempUserData.age !== null &&
+        (tempUserData.age < 0 || tempUserData.age > 150)
+      ) {
+        throw new Error("Age must be between 0 and 150");
+      }
+      // Validasi gender di frontend
+      if (
+        tempUserData.gender !== null &&
+        !["male", "female", "other"].includes(tempUserData.gender)
+      ) {
+        throw new Error("Gender must be male, female, or other");
+      }
+
+      // Update patient data
+      const patientPayload = {
+        name: tempUserData.name,
         phone: tempUserData.phone,
         address: tempUserData.address,
+        ...(userData.role === "User" && {
+          age: tempUserData.age,
+          gender: tempUserData.gender,
+        }),
       };
-      const response = await axios.patch(
-        "/api/v1/users/me/profile-details",
-        payload
+      console.debug("Sending patient update payload:", patientPayload);
+      const patientResponse = await axios.patch(
+        "/api/v1/patients/me",
+        patientPayload
       );
+
+      // Update user data (email)
+      const userPayload = {
+        email: tempUserData.email,
+      };
+      console.debug("Sending user update payload:", userPayload);
+      let userResponse;
+      try {
+        userResponse = await axios.patch("/api/v1/users/me", userPayload);
+      } catch (userError) {
+        console.error("Error updating user:", userError);
+        if (
+          typeof userError === "object" &&
+          userError !== null &&
+          "response" in userError &&
+          typeof (userError as any).response === "object"
+        ) {
+          const response = (userError as any).response;
+          if (response?.status === 422) {
+            throw new Error(
+              "Invalid input: Check email format or required fields"
+            );
+          } else if (response?.status === 400) {
+            throw new Error(
+              response.data?.detail || "Failed to update user data"
+            );
+          }
+        }
+        throw userError;
+      }
+
       setUserData({
         ...tempUserData,
-        name: response.data.full_name,
-        email: response.data.email,
-        phone: response.data.phone || "",
-        address: response.data.address || "",
+        name: patientResponse.data.name,
+        phone: patientResponse.data.phone || "",
+        address: patientResponse.data.address || "",
+        age: patientResponse.data.age ?? null,
+        gender: patientResponse.data.gender ?? null,
+        email: userResponse.data.email,
       });
       setIsEditing(false);
       toast.success("Profile updated successfully", {
@@ -187,12 +270,12 @@ export default function ProfilePage() {
         password: newPassword,
         confirm_password: confirmPassword,
       };
+      console.debug("Sending password update payload:", payload);
       const response = await axios.patch("/api/v1/users/me", payload);
       const updatedUser = response.data;
 
       setUserData({
         ...userData,
-        name: updatedUser.full_name,
         email: updatedUser.email,
         passwordLastChanged: updatedUser.updated_at
           ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {
@@ -204,7 +287,6 @@ export default function ProfilePage() {
       });
       setTempUserData({
         ...tempUserData,
-        name: updatedUser.full_name,
         email: updatedUser.email,
         passwordLastChanged: updatedUser.updated_at
           ? new Date(updatedUser.updated_at).toLocaleDateString("en-US", {
@@ -428,6 +510,62 @@ export default function ProfilePage() {
                             </div>
                           )}
                         </div>
+                        {userData.role === "User" && (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Age
+                              </label>
+                              {isEditing ? (
+                                <input
+                                  type="number"
+                                  name="age"
+                                  value={tempUserData.age ?? ""}
+                                  onChange={handleInputChange}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                  min="0"
+                                  max="150"
+                                />
+                              ) : (
+                                <div className="flex items-center">
+                                  <Hash className="h-5 w-5 text-gray-400 mr-2" />
+                                  <span className="text-gray-800">
+                                    {userData.age !== null
+                                      ? userData.age
+                                      : "Not set"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                Gender
+                              </label>
+                              {isEditing ? (
+                                <select
+                                  name="gender"
+                                  value={tempUserData.gender ?? ""}
+                                  onChange={handleInputChange}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
+                                >
+                                  <option value="">Select gender</option>
+                                  <option value="male">Male</option>
+                                  <option value="female">Female</option>
+                                  <option value="other">Other</option>
+                                </select>
+                              ) : (
+                                <div className="flex items-center">
+                                  <User className="h-5 w-5 text-gray-400 mr-2" />
+                                  <span className="text-gray-800">
+                                    {userData.gender !== null
+                                      ? userData.gender
+                                      : "Not set"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Role
