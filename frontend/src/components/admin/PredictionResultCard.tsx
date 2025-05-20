@@ -93,13 +93,13 @@ export function PredictionResultCard({
   const getNextStepsText = () => {
     switch (result.status) {
       case "positive":
-        return "Segera konsultasikan dengan tenaga medis profesional. Deteksi AI ini bukan diagnosis klinis, tetapi menunjukkan perlunya evaluasi medis lebih lanjut.";
+        return "Consult a medical professional immediately. This AI detection is not a clinical diagnosis, but indicates the need for further medical evaluation.";
       case "negative":
-        return "Tidak ada tanda-tanda TBC terdeteksi. Namun, jika Anda mengalami gejala yang berlangsung lama, konsultasikan dengan tenaga medis profesional. Pemeriksaan rutin disarankan.";
+        return "There are no detectable signs of TB. However, if you experience symptoms that last for a long time, consult a medical professional. Regular check-ups are recommended.";
       case "error":
-        return "Terjadi kesalahan saat analisis. Silakan coba unggah ulang gambar atau hubungi dukungan jika masalah berlanjut.";
+        return "An error occurred during analysis. Please try re-uploading the image or contact support if the issue persists.";
       default:
-        return "Silakan konsultasikan dengan tenaga medis profesional untuk evaluasi dan diagnosis yang tepat.";
+        return "Please consult a medical professional for proper evaluation and diagnosis.";
     }
   };
 
@@ -169,7 +169,7 @@ export function PredictionResultCard({
         <div className="flex gap-2 items-start">
           <IconLungs className="h-5 w-5 text-blue-600 mt-0.5" />
           <div>
-            <h4 className="font-medium text-blue-800">Langkah Selanjutnya</h4>
+            <h4 className="font-medium text-blue-800">Next Steps!</h4>
             <p className="text-sm text-blue-700 mt-1">{getNextStepsText()}</p>
           </div>
         </div>

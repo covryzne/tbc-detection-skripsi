@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconUpload, IconX } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface FileUploaderProps {
   onFileChange: (file: File | null) => void;
@@ -98,6 +99,22 @@ export function FileUploader({
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (file) {
+      // Validasi tipe file
+      const validTypes = ["image/png", "image/jpeg"];
+      if (!validTypes.includes(file.type)) {
+        toast.error("Format file tidak valid", {
+          description: "Hanya file PNG atau JPG yang diizinkan.",
+        });
+        // Kosongkan input file
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+        setSelectedFile(null);
+        setPreview(null);
+        onFileChange(null);
+        return;
+      }
+
       try {
         // Konversi ke grayscale jika file adalah gambar
         if (file.type.startsWith("image/")) {
@@ -120,9 +137,15 @@ export function FileUploader({
         }
       } catch (error) {
         console.error("Error converting to grayscale:", error);
+        toast.error("Gagal memproses file", {
+          description: "Terjadi kesalahan saat mengonversi gambar.",
+        });
         setSelectedFile(null);
         setPreview(null);
         onFileChange(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
       }
     } else {
       setSelectedFile(null);
@@ -130,24 +153,6 @@ export function FileUploader({
       onFileChange(null);
     }
   };
-
-  // RGB
-  // const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-  //   const file = e.target.files?.[0] || null;
-  //   if (file) {
-  //     setSelectedFile(file);
-  //     const reader = new FileReader();
-  //     reader.onload = () => {
-  //       setPreview(reader.result as string);
-  //     };
-  //     reader.readAsDataURL(file);
-  //     onFileChange(file);
-  //   } else {
-  //     setSelectedFile(null);
-  //     setPreview(null);
-  //     onFileChange(null);
-  //   }
-  // };
 
   const clearFile = () => {
     setSelectedFile(null);

@@ -26,8 +26,8 @@ import { ChevronRight } from "lucide-react";
 // Sample data for performance metrics (AUC-ROC removed from BarChart)
 const performanceData = [
   { name: "Accuracy", value: 0.97 },
-  { name: "Precision", value: 0.97 },
-  { name: "Recall", value: 0.97 },
+  { name: "Precision", value: 0.965 },
+  { name: "Recall", value: 0.965 },
   { name: "F1 Score", value: 0.97 },
 ];
 
@@ -90,13 +90,59 @@ const pieData = [
 
 const COLORS = ["#60a5fa", "#f87171", "#4ade80", "#fbbf24"];
 
+// Training and validation data based on the uploaded images
+const trainValData = [
+  {
+    epoch: 0,
+    "train loss": 0.26,
+    "validation loss": 0.138,
+    "train accuracy": 0.724,
+    "validation accuracy": 0.89,
+  },
+  {
+    epoch: 5,
+    "train loss": 0.122,
+    "validation loss": 0.071,
+    "train accuracy": 0.904,
+    "validation accuracy": 0.95,
+  },
+  {
+    epoch: 10,
+    "train loss": 0.117,
+    "validation loss": 0.039,
+    "train accuracy": 0.909,
+    "validation accuracy": 0.97,
+  },
+  {
+    epoch: 15,
+    "train loss": 0.104,
+    "validation loss": 0.027,
+    "train accuracy": 0.916,
+    "validation accuracy": 0.98,
+  },
+  {
+    epoch: 20,
+    "train loss": 0.097,
+    "validation loss": 0.026,
+    "train accuracy": 0.919,
+    "validation accuracy": 0.99,
+  },
+  {
+    epoch: 25,
+    "train loss": 0.096,
+    "validation loss": 0.023,
+    "train accuracy": 0.926,
+    "validation accuracy": 0.99,
+  },
+];
+
 // DenseNet architecture layers
 const densenetLayers = [
   {
     name: "Input",
-    size: "224×224×3",
+    size: "224×224×1",
     color: "bg-gray-100",
-    desc: "RGB image input",
+    desc: "Grayscale image input",
   },
   {
     name: "Convolution",
@@ -227,6 +273,69 @@ export default function MetricsPage() {
                             }}
                           />
                         </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Line Chart for Train/Validation Loss and Accuracy */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Training and Validation Metrics</CardTitle>
+                    <CardDescription>
+                      Loss and accuracy trends over epochs
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={trainValData}
+                          margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="epoch" />
+                          <YAxis yAxisId="left" domain={[0, 0.3]} />
+                          <YAxis
+                            yAxisId="right"
+                            orientation="right"
+                            domain={[0.75, 1]}
+                          />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="train loss"
+                            stroke="#8884d8"
+                            name="Train Loss"
+                            dot={false}
+                          />
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="validation loss"
+                            stroke="#ff7300"
+                            name="Validation Loss"
+                            dot={false}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="train accuracy"
+                            stroke="#3b82f6"
+                            name="Train Accuracy"
+                            dot={false}
+                          />
+                          <Line
+                            yAxisId="right"
+                            type="monotone"
+                            dataKey="validation accuracy"
+                            stroke="#ffaa00"
+                            name="Validation Accuracy"
+                            dot={false}
+                          />
+                        </LineChart>
                       </ResponsiveContainer>
                     </div>
                   </CardContent>
@@ -368,7 +477,7 @@ export default function MetricsPage() {
                               fill="#8884d8"
                               dataKey="value"
                               label={({ name, percent }) =>
-                                `${name}: ${(percent * 100).toFixed(0)}%`
+                                `${name}: ${(percent * 100).toFixed(2)}%`
                               }
                             >
                               {pieData.map((entry, index) => (
@@ -420,19 +529,15 @@ export default function MetricsPage() {
                               <td className="py-2">121 layers</td>
                             </tr>
                             <tr className="border-b">
-                              <td className="py-2 font-medium">Parameters</td>
-                              <td className="py-2">~8 million</td>
-                            </tr>
-                            <tr className="border-b">
                               <td className="py-2 font-medium">Input Size</td>
-                              <td className="py-2">224×224×3</td>
+                              <td className="py-2">224×224×1</td>
                             </tr>
                             <tr className="border-b">
                               <td className="py-2 font-medium">Dense Blocks</td>
                               <td className="py-2">4</td>
                             </tr>
                             <tr>
-                              <td className="py-2 font-medium">Growth Rate</td>
+                              <td className="py-2 font-medium">Batch Size</td>
                               <td className="py-2">32</td>
                             </tr>
                           </tbody>
@@ -446,18 +551,16 @@ export default function MetricsPage() {
                         <table className="w-full border-collapse">
                           <tbody>
                             <tr className="border-b">
-                              <td className="py-2 font-medium">
-                                Inference Time
-                              </td>
-                              <td className="py-2">45ms</td>
+                              <td className="py-2 font-medium">Dropout</td>
+                              <td className="py-2">0.5</td>
                             </tr>
                             <tr className="border-b">
                               <td className="py-2 font-medium">Accuracy</td>
-                              <td className="py-2">93.2%</td>
+                              <td className="py-2">97%</td>
                             </tr>
                             <tr className="border-b">
                               <td className="py-2 font-medium">Model Size</td>
-                              <td className="py-2">33MB</td>
+                              <td className="py-2">30MB</td>
                             </tr>
                             <tr className="border-b">
                               <td className="py-2 font-medium">
@@ -469,7 +572,9 @@ export default function MetricsPage() {
                               <td className="py-2 font-medium">
                                 Training Time
                               </td>
-                              <td className="py-2">~4 hours on NVIDIA T4</td>
+                              <td className="py-2">
+                                ~20 Minutes on NVIDIA T4 (CUDA)
+                              </td>
                             </tr>
                           </tbody>
                         </table>
