@@ -1,4 +1,4 @@
-# Voyage Imaging
+# TB DETECTOR
 
 ## Installation and Setup
 
