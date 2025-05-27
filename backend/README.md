@@ -5,18 +5,6 @@
 It is supposed that you open this repo in github codespace or gitpod.
 
 ```
-    # create a .env file from .env.example
-    $ cp .env.example .env
-
-    # step 1 : start docker
-    docker-compose up -d # ( "-d" in detached mode, remove "-d" for non detached mode)
-
-    # check ip of database container
-    $ docker inspect postgres_voyage_imaging # "IPAddress": "172.20.0.3", find something like this
-
-    #open env.py under alembic
-    # and change the ip under DATABAL to current  , leave it if the ip is same
-
     # migrate to db
     # alembic revision --autogenerate -m "initial database schema migraion" -> makes migrations files
     $ alembic upgrade head
@@ -42,8 +30,7 @@ It is supposed that you open this repo in github codespace or gitpod.
 ## Authors
 
 ## Resources
-
-<!--
+```
    #create a python environment
     $ python -m venv venv
     #activate environment
@@ -54,7 +41,8 @@ It is supposed that you open this repo in github codespace or gitpod.
     # Run app
     $ uvicorn src.main:app --reload # dev
     $ uvicorn src.main:app # prod
-
+```
+<!--
     # Run test and coverage
     $ pytest
     $ coverage run -m pytest
