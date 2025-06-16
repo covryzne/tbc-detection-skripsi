@@ -4,7 +4,7 @@ import AboutContent from "./about";
 
 export default function About() {
   return (
-    <div className="flex flex-col min-h-screen bg-yellow-50/50">
+    <div className="flex flex-col min-h-screen bg-white">
       {/* Header */}
       <Header />
 

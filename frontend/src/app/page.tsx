@@ -6,7 +6,7 @@ import HeroSection from "@/app/heroSection";
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen flex-col bg-yellow-50/50">
+    <div className="flex min-h-screen flex-col bg-white">
       {/* Header */}
       <Header />
 

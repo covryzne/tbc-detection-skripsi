@@ -4,7 +4,7 @@ import TbNews from "./tbNews";
 
 export default function tbNews() {
   return (
-    <div className="flex flex-col min-h-screen bg-yellow-50/50">
+    <div className="flex flex-col min-h-screen bg-white">
       {/* Header */}
       <Header />
 
