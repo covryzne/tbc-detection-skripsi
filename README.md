@@ -39,10 +39,9 @@ Sistem ini menyediakan platform web yang memungkinkan pengguna mengunggah citra 
 
 ### 📊 **Fitur Tambahan**
 
-- History dan tracking hasil deteksi
+- History hasil deteksi
 - Confidence score dan visualisasi
-- Export hasil dalam format PDF
-- Real-time prediction dengan feedback
+- Export hasil dalam format csv
 
 ---
 
@@ -119,7 +118,7 @@ Pastikan sistem Anda telah terinstall:
 ### 1. Clone Repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/covryzne/tbc-detection-skripsi.git
 cd NEW-tbc-detection-skripsi
 ```
 
@@ -371,9 +370,9 @@ Model DenseNet-121 yang digunakan memiliki performa:
 
 ## 👥 Tim Pengembang
 
-- **Peneliti**: [Nama Anda]
-- **Pembimbing**: [Nama Pembimbing]
-- **Institusi**: [Nama Universitas]
+- **Peneliti**: Shendi Teuku Maulana Efendi
+- **Pembimbing**: Puguh Jayadi, S.Kom., M.Kom.
+- **Institusi**: Universitas PGRI Madiun
 
 ---
 
@@ -385,7 +384,7 @@ Proyek ini dibuat untuk keperluan akademis (skripsi). Silakan hubungi pengembang
 
 ## 🙏 Acknowledgments
 
-- Dataset: [Sumber dataset yang digunakan]
+- Dataset: [![Indonesia TB Report](https://img.shields.io/badge/Kaggle-20BEFF?style=for-the-badge&logo=Kaggle&logoColor=white)](https://www.kaggle.com/datasets/tawsifurrahman/tuberculosis-tb-chest-xray-dataset) dan [![Mendeley Data](https://img.shields.io/badge/Mendeley-FF4C4C?style=for-the-badge&logo=Mendeley&logoColor=white)](https://data.mendeley.com/datasets/8j2g3csprk/2)
 - DenseNet-121 Architecture: Densely Connected Convolutional Networks (Huang et al.)
 - Framework: FastAPI, Next.js, PostgreSQL
 
