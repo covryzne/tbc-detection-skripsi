@@ -61,9 +61,9 @@ export default function ProfilePage() {
     gender: null,
     joinDate: "",
     passwordLastChanged: "",
-  });
-  const [tempUserData, setTempUserData] = useState<UserData>({ ...userData });
+  });  const [tempUserData, setTempUserData] = useState<UserData>({ ...userData });
   const [error, setError] = useState<string | null>(null);
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -142,33 +142,64 @@ export default function ProfilePage() {
     }
     fetchUserAndPatient();
   }, []);
-
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    setTempUserData({
-      ...tempUserData,
-      [name as keyof UserData]:
-        name === "age"
-          ? value
-            ? parseInt(value)
-            : null
-          : name === "gender"
-          ? value || null
-          : value,
-    });
+    
+    // Special handling for phone field
+    if (name === 'phone') {
+      const validChars = /^[\+]?[0-9\s\-\(\)]*$/;
+      
+      if (value === '' || validChars.test(value)) {
+        setTempUserData({
+          ...tempUserData,
+          [name as keyof UserData]: value,
+        });
+        setPhoneError(null);
+      } else {
+        setPhoneError("Only numbers, spaces, hyphens, parentheses, and + sign are allowed");
+      }
+    } else {
+      setTempUserData({
+        ...tempUserData,
+        [name as keyof UserData]:
+          name === "age"
+            ? value
+              ? parseInt(value)
+              : null
+            : name === "gender"
+            ? value || null
+            : value,
+      });
+    }
   };
-
   const handleEditToggle = () => {
     if (isEditing) {
       setTempUserData({ ...userData });
+      setPhoneError(null);
     }
     setIsEditing(!isEditing);
   };
-
   const handleSave = async () => {
     try {
+      // Validate phone number if provided
+      if (tempUserData.phone.trim()) {
+        const phoneRegex = /^[\+]?[0-9\s\-\(\)]{8,20}$/;
+        const digitOnlyPhone = tempUserData.phone.replace(/[\s\-\(\)\+]/g, '');
+        
+        if (!phoneRegex.test(tempUserData.phone) || digitOnlyPhone.length < 8) {
+          setPhoneError("Phone number must contain 8-20 digits");
+          toast.error("Invalid phone number", {
+            description: "Phone number must contain 8-20 digits"
+          });
+          return;
+        }
+      }
+
+      // Clear any existing phone error
+      setPhoneError(null);
+
       // Validasi age di frontend
       if (
         tempUserData.age !== null &&
@@ -467,19 +498,27 @@ export default function ProfilePage() {
                               </span>
                             </div>
                           )}
-                        </div>
-                        <div>
+                        </div>                        <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">
                             Phone
                           </label>
                           {isEditing ? (
-                            <input
-                              type="text"
-                              name="phone"
-                              value={tempUserData.phone}
-                              onChange={handleInputChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600"
-                            />
+                            <div className="space-y-1">
+                              <input
+                                type="tel"
+                                name="phone"
+                                value={tempUserData.phone}
+                                onChange={handleInputChange}
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-600 ${
+                                  phoneError ? 'border-red-500 focus:border-red-500' : 'border-gray-300'
+                                }`}
+                                placeholder="Enter phone number (optional)"
+                                title="Phone number should contain 8-20 digits and may include +, spaces, hyphens, or parentheses"
+                              />
+                              {phoneError && (
+                                <p className="text-sm text-red-500">{phoneError}</p>
+                              )}
+                            </div>
                           ) : (
                             <div className="flex items-center">
                               <Phone className="h-5 w-5 text-gray-400 mr-2" />

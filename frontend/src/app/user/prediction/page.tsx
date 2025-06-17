@@ -210,13 +210,13 @@ export default function PrediksiPage() {
         fileSize: result.fileSize,
         fileType: result.fileType,
       });
-      toast.success("Hasil prediksi berhasil disimpan");
+      toast.success("Prediction results successfully saved");
       return true;
     } catch (err: any) {
       const errorMsg =
         err.response?.data?.detail || "Failed to save prediction";
       console.error("Error saving result:", err);
-      toast.error("Gagal menyimpan hasil prediksi", {
+      toast.error("Failed to save prediction results", {
         description: errorMsg,
       });
       return false;

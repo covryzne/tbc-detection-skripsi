@@ -216,7 +216,7 @@ export default function PrediksiPage() {
       setUserAge("");
       setError("");
       setPhoneError("");
-      toast.success("User berhasil ditambahkan!");
+      toast.success("User successfully added!");
     } catch (err: any) {
       console.error("Error saving user:", err.response?.data || err);
       const errorMsg = err.response?.data?.detail || "Gagal menyimpan user";
@@ -258,12 +258,12 @@ export default function PrediksiPage() {
         gender: userData.gender || null,
         age: userData.age || null,
       });
-      toast.success("Hasil prediksi berhasil disimpan");
+      toast.success("Prediction results successfully saved");
       return true;
     } catch (err) {
       console.error("Error saving result:", err);
-      toast.error("Gagal menyimpan hasil prediksi", {
-        description: "Terjadi kesalahan saat menyimpan. Silakan coba lagi.",
+      toast.error("Failed to save prediction results", {
+        description: "An error occurred while saving. Please try again.",
       });
       return false;
     }
@@ -276,8 +276,8 @@ export default function PrediksiPage() {
     // console.log("API URL:", process.env.NEXT_PUBLIC_API_URL);
     if (!userData) {
       // console.log("No userData, showing toast");
-      toast.error("Harap masukkan data terlebih dahulu", {
-        description: "Silakan tambahkan user sebelum melakukan analisis.",
+      toast.error("Please enter your data first.", {
+        description: "Please enter your data first.",
       });
       return null;
     }
