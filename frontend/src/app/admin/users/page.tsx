@@ -9,7 +9,10 @@ import {
   IconEdit,
   IconTrash,
   IconPlus,
+  IconEye,
+  IconEyeOff,
 } from "@tabler/icons-react";
+import { toast } from "sonner";
 
 // Interface for user data in table
 interface User {
@@ -23,6 +26,7 @@ interface User {
 // Interface for form (add/edit user)
 interface UserForm extends User {
   password?: string; // Optional, only for creating user
+  confirmPassword?: string; // For password confirmation
 }
 
 const UserModal: React.FC<{
@@ -33,7 +37,7 @@ const UserModal: React.FC<{
 }> = ({ isOpen, onClose, user, onSave }) => {
   const [formData, setFormData] = React.useState<UserForm>(
     user
-      ? { ...user, password: "" }
+      ? { ...user, password: "", confirmPassword: "" }
       : {
           id: "",
           name: "",
@@ -41,15 +45,20 @@ const UserModal: React.FC<{
           region: "Unknown",
           createdAt: "",
           password: "",
+          confirmPassword: "",
         }
   );
 
+  // State for controlling password editing when editing user
+  const [showPasswordEdit, setShowPasswordEdit] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = React.useState(false);
   // Reset formData when user changes
   React.useEffect(() => {
     console.log("UserModal received user:", user); // Debug
     setFormData(
       user
-        ? { ...user, password: "" }
+        ? { ...user, password: "", confirmPassword: "" }
         : {
             id: "",
             name: "",
@@ -57,17 +66,46 @@ const UserModal: React.FC<{
             region: "Unknown",
             createdAt: "",
             password: "",
+            confirmPassword: "",
           }
     );
+    setShowPasswordEdit(false);
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   }, [user]);
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Submitting formData:", formData); // Debug
+
     if (!formData.id && user) {
       console.error("FormData missing id on submit:", formData);
       return;
+    } // Validate password for new users
+    if (!user && (!formData.password || formData.password.length < 6)) {
+      toast.error("Password must be at least 6 characters");
+      return;
     }
+
+    // Validate password confirmation for new users or when editing password
+    if (
+      (!user || showPasswordEdit) &&
+      formData.password !== formData.confirmPassword
+    ) {
+      toast.error("Password and confirm password do not match");
+      return;
+    }
+
+    // Validate password length when editing
+    if (
+      user &&
+      showPasswordEdit &&
+      formData.password &&
+      formData.password.length < 6
+    ) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
     onSave(formData);
     onClose();
   };
@@ -106,24 +144,189 @@ const UserModal: React.FC<{
                 }
                 className="mt-1 block w-full border border-gray-300 rounded-md p-2"
                 required
-              />
+              />{" "}
             </div>
+
+            {/* Password Section */}
             {!user && (
+              <>
+                {/* New User Password */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password || ""}
+                      onChange={(e) =>
+                        setFormData({ ...formData, password: e.target.value })
+                      }
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 pr-10"
+                      required
+                      minLength={6}
+                      placeholder="Minimum 6 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showPassword ? (
+                        <IconEyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <IconEye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      value={formData.confirmPassword || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          confirmPassword: e.target.value,
+                        })
+                      }
+                      className="mt-1 block w-full border border-gray-300 rounded-md p-2 pr-10"
+                      required
+                      placeholder="Repeat password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    >
+                      {showConfirmPassword ? (
+                        <IconEyeOff className="h-4 w-4 text-gray-400" />
+                      ) : (
+                        <IconEye className="h-4 w-4 text-gray-400" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* Edit User Password Section */}
+            {user && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={formData.password || ""}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  className="mt-1 block w-full border border-gray-300 rounded-md p-2"
-                  required
-                />
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Password
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowPasswordEdit(!showPasswordEdit);
+                      if (!showPasswordEdit) {
+                        setFormData({
+                          ...formData,
+                          password: "",
+                          confirmPassword: "",
+                        });
+                      }
+                    }}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {showPasswordEdit
+                      ? "Cancel Edit Password"
+                      : "Edit Password"}
+                  </button>
+                </div>
+
+                {!showPasswordEdit ? (
+                  <input
+                    type="password"
+                    value="••••••••"
+                    disabled
+                    className="mt-1 block w-full border border-gray-300 rounded-md p-2 bg-gray-100"
+                  />
+                ) : (
+                  <>
+                    {/* New Password */}
+                    <div className="mb-3">
+                      {" "}
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          value={formData.password || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              password: e.target.value,
+                            })
+                          }
+                          className="block w-full border border-gray-300 rounded-md p-2 pr-10"
+                          minLength={6}
+                          placeholder="Minimum 6 characters"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showPassword ? (
+                            <IconEyeOff className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <IconEye className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Confirm New Password */}
+                    <div className="mb-3">
+                      {" "}
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Confirm New Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          value={formData.confirmPassword || ""}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              confirmPassword: e.target.value,
+                            })
+                          }
+                          className="block w-full border border-gray-300 rounded-md p-2 pr-10"
+                          placeholder="Repeat new password"
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowConfirmPassword(!showConfirmPassword)
+                          }
+                          className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                        >
+                          {showConfirmPassword ? (
+                            <IconEyeOff className="h-4 w-4 text-gray-400" />
+                          ) : (
+                            <IconEye className="h-4 w-4 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
+
             <div className="flex justify-end gap-2">
               <button
                 type="button"
@@ -309,10 +512,11 @@ const UsersContent: React.FC = () => {
       addUser(userData);
     }
   };
-
   const confirmDelete = () => {
     if (userToDelete) {
       deleteUser(userToDelete.id);
+      setIsConfirmOpen(false);
+      setUserToDelete(null);
     }
   };
 
@@ -367,6 +571,9 @@ const UsersContent: React.FC = () => {
         },
       ]);
       setError(null);
+      toast.success("User successfully added!", {
+        description: `${data.full_name} has been added to the system.`,
+      });
     } catch (error: any) {
       console.error("Add user error:", error);
       setError(
@@ -426,6 +633,9 @@ const UsersContent: React.FC = () => {
         )
       );
       setError(null);
+      toast.success("User successfully updated!", {
+        description: `${data.full_name} data has been updated.`,
+      });
     } catch (error: any) {
       console.error("Update user error:", error);
       setError(
@@ -434,34 +644,58 @@ const UsersContent: React.FC = () => {
       );
     }
   };
-
   const deleteUser = async (userId: string) => {
     try {
       const token = localStorage.getItem("auth_token");
       if (!token) {
         throw new Error("No authentication token found. Please log in again.");
       }
+
+      // Since there's no DELETE endpoint, we'll use soft delete by setting is_active to false
+      const userToDelete = usersData.find((user) => user.id === userId);
+      if (!userToDelete) {
+        throw new Error("User not found.");
+      }
+
       const response = await fetch(
         `http://localhost:8000/api/v1/users/${userId}`,
         {
-          method: "DELETE",
+          method: "PUT",
           headers: {
+            "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
+          body: JSON.stringify({
+            full_name: userToDelete.name,
+            email: userToDelete.email,
+            password: "dummy", // Required by backend but won't be changed
+            confirm_password: "dummy",
+            is_active: false, // Soft delete - set to inactive
+            is_admin: false,
+          }),
         }
       );
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || "Failed to delete user");
       }
+
+      // Remove from frontend list (acts like hard delete for UI purposes)
       setUsersData(usersData.filter((user) => user.id !== userId));
       setError(null);
+      toast.success("User successfully deleted!", {
+        description: "User has been deactivated from the system.",
+      });
     } catch (error: any) {
       console.error("Delete user error:", error);
       setError(
         error.message ||
           "Failed to delete user. Please check the data and try again."
       );
+      toast.error("Failed to delete user", {
+        description:
+          error.message || "An error occurred while deleting the user.",
+      });
     }
   };
 

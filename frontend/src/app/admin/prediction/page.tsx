@@ -47,6 +47,7 @@ export default function PrediksiPage() {
   const [userGender, setUserGender] = useState("");
   const [userAge, setUserAge] = useState("");
   const [error, setError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [currentUser, setCurrentUser] = useState<{
     id: string;
     name: string;
@@ -155,11 +156,22 @@ export default function PrediksiPage() {
       toast.error("User name is required");
       return;
     }
-
     if (!userRegion.trim()) {
       setError("Region is required");
       toast.error("Region is required");
       return;
+    }
+
+    // Validate phone number (only digits, optional + prefix, and common separators)
+    if (userPhone.trim()) {
+      const phoneRegex = /^[\+]?[0-9\s\-\(\)]{8,20}$/;
+      const digitOnlyPhone = userPhone.replace(/[\s\-\(\)\+]/g, "");
+
+      if (!phoneRegex.test(userPhone) || digitOnlyPhone.length < 8) {
+        setError("Nomor telepon harus berisi angka (8-20 digit)");
+        toast.error("Nomor telepon harus berisi angka (8-20 digit)");
+        return;
+      }
     }
 
     const ageNumber = parseInt(userAge);
@@ -203,6 +215,7 @@ export default function PrediksiPage() {
       setUserGender("");
       setUserAge("");
       setError("");
+      setPhoneError("");
       toast.success("User berhasil ditambahkan!");
     } catch (err: any) {
       console.error("Error saving user:", err.response?.data || err);
@@ -518,15 +531,41 @@ export default function PrediksiPage() {
                         onChange={(e) => setUserRegion(e.target.value)}
                         required
                       />
-                    </div>
+                    </div>{" "}
                     <div className="space-y-2">
                       <Label htmlFor="userPhone">Phone Number</Label>
                       <Input
                         id="userPhone"
+                        type="tel"
                         placeholder="Enter phone number (optional)"
                         value={userPhone}
-                        onChange={(e) => setUserPhone(e.target.value)}
+                        onChange={(e) => {
+                          const inputValue = e.target.value;
+                          const validChars = /^[\+]?[0-9\s\-\(\)]*$/;
+
+                          if (
+                            inputValue === "" ||
+                            validChars.test(inputValue)
+                          ) {
+                            setUserPhone(inputValue);
+                            setPhoneError("");
+                          } else {
+                            setPhoneError(
+                              "Only numbers, spaces, hyphens, parentheses, and plus signs are allowed."
+                            );
+                          }
+                        }}
+                        className={
+                          phoneError
+                            ? "border-red-500 focus:border-red-500"
+                            : ""
+                        }
+                        pattern="[\+]?[0-9\s\-\(\)]{8,20}"
+                        title="Phone number should contain 8-20 digits and may include +, spaces, hyphens, or parentheses"
                       />
+                      {phoneError && (
+                        <p className="text-sm text-red-500">{phoneError}</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -570,6 +609,7 @@ export default function PrediksiPage() {
                         setUserGender("");
                         setUserAge("");
                         setError("");
+                        setPhoneError("");
                       }}
                     >
                       Cancel
